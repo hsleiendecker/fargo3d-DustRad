@@ -61,6 +61,22 @@ Fluid *CreateFluid(char *name, int fluidtype) {
   f->Energy  = CreateField(fieldname, ENERGY, 0,0,0);  
   f->VxMed   = CreateField2D ("VxMed", YZ);
 
+#ifdef STOKES2POP
+  /*HSL*/
+  sprintf(fieldname,"%s%s",name,"grainsize");
+  f->GrainSize = CreateField(fieldname,GRAINSIZE,0,0,0);
+  //last lines are booleans for cell centered or edge
+  //sprintf(fieldname,"%s%s",name,"e_grow");
+  //f->E_grow = CreateField(fieldname,E_GROW,0,0,0);
+#ifdef RUNRADTRANS
+  sprintf(fieldname,"%s%s",name,"htherm");
+  f->HTherm = CreateField(fieldname,HTHERM,0,0,0);
+  sprintf(fieldname,"%s%s",name,"radtemp");
+  f->RadTemp = CreateField(fieldname,RADTEMP,0,0,0);
+#endif
+#endif
+
+
 #ifdef X
   sprintf(fieldname,"%s%s",name,"vx");
   f->Vx      = CreateField(fieldname, VX, 1,0,0);
@@ -93,6 +109,8 @@ Fluid *CreateFluid(char *name, int fluidtype) {
   f->Vy0  = CreateField2D ("vy0", YZ);
   f->Vz0  = CreateField2D ("vz0", YZ);
 #endif
+
+
 
   return f;
 }
@@ -161,6 +179,7 @@ Field *CreateField(char *name, int type, boolean sx, boolean sy, boolean sz) {
 #ifdef Z
   }
 #endif  
+
   masterprint("Field %s has been created\n", name);
   //Now on the GPU
 #ifdef GPU

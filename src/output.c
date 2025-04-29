@@ -577,6 +577,12 @@ void WriteOutputs(int type) {
   boolean writevz;
   boolean writeenergyrad;
   boolean writetau;
+#ifdef STOKES2POP
+  boolean writegrainsize; //HSL
+#endif
+#ifdef RUNRADTRANS
+  boolean writehtherm; //HSL
+#endif
 
   char outputdir[MAXLINELENGTH];
   static int init = 0;
@@ -600,6 +606,12 @@ void WriteOutputs(int type) {
     writevz = WRITEVZ;
     writeenergyrad = WRITEENERGYRAD;
     writetau = WRITETAU;
+#ifdef STOKES2POP
+    writegrainsize = WRITEGRAINSIZE; //HSL
+#endif
+#ifdef RUNRADTRANS
+  writehtherm = WRITEHTHERM; //HSL
+#endif
     WRITEDENSITY = YES;
     WRITEENERGY = YES;
     WRITEBX = YES;
@@ -610,6 +622,12 @@ void WriteOutputs(int type) {
     WRITEVZ = YES;
     WRITEENERGYRAD = YES;
     WRITETAU = YES;
+#ifdef STOKES2POP
+    WRITEGRAINSIZE = YES; //HSL
+#endif
+#ifdef RUNRADTRANS
+  WRITEHTHERM = YES; //HSL
+#endif
   }
   else {
     sprintf(outputdir,"%s",OUTPUTDIR);
@@ -634,6 +652,14 @@ void WriteOutputs(int type) {
     offset = ParallelIO(Density, TimeStep, MPI_MODE_WRONLY|MPI_MODE_CREATE, offset,writeoffset);
   if (WRITEENERGY)
     offset = ParallelIO(Energy, TimeStep, MPI_MODE_WRONLY|MPI_MODE_CREATE, offset,writeoffset);
+#ifdef STOKES2POP
+  if (WRITEGRAINSIZE)
+    offset = ParallelIO(GrainSize, TimeStep, MPI_MODE_WRONLY|MPI_MODE_CREATE, offset,writeoffset);//HSL
+#endif
+#ifdef RUNRADTRANS
+  if (WRITEHTHERM)
+    offset = ParallelIO(HTherm, TimeStep, MPI_MODE_WRONLY|MPI_MODE_CREATE, offset,writeoffset);//HSL
+#endif
 #ifdef X
   if (WRITEVX)
     offset = ParallelIO(Vx, TimeStep, MPI_MODE_WRONLY|MPI_MODE_CREATE, offset,writeoffset);
@@ -680,6 +706,14 @@ void WriteOutputs(int type) {
     __WriteField(Density, TimeStep);
   if (WRITEENERGY)
     __WriteField(Energy, TimeStep);
+#ifdef STOKES2POP
+  if (WRITEGRAINSIZE)
+    __WriteField(GrainSize, TimeStep);//HSL
+#endif
+#ifdef RUNRADTRANS
+  if (WRITEHTHERM)
+    __WriteField(HTherm, TimeStep);//HSL
+#endif
 #ifdef MHD //MHD is 3D.
   if(Fluidtype == GAS){
     if (WRITEDIVERGENCE)
@@ -715,6 +749,12 @@ if (type == ALL){ //We recover the .par variables' value
     WRITEVX = writevx;
     WRITEVY = writevy;
     WRITEVZ = writevz;
+#ifdef STOKES2POP
+    WRITEGRAINSIZE = writegrainsize;//HSL
+#endif
+#ifdef RUNRADTRANS
+    WRITEHTHERM = writehtherm;//HSL
+#endif
   }
 
   if(Vtk2dat)

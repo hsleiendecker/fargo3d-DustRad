@@ -106,3 +106,25 @@ WriteVz			No
 WriteDivergence		No
 WriteEnergyRad		No
 WriteTau		No
+WriteGrainSize  0
+WriteHTherm     0
+
+Nx_rad      64         
+Ny_rad      64         
+NxRadSurf   128        
+NyRadSurf   128       
+FlxLimMin   1.0e-2    
+FlxLimMax   1.0e0  
+
+MStarRad   1.4
+RStarRad   1.854
+TStarRad   4760.0
+MDotRad    1.0e-8
+
+Rosseland   412.6 
+Planck      2078.8 
+RatioPNum   428.9    
+AbsFracNum  999.7 
+
+DISKINTERIORFACTOR 4.3
+BetaCooling 1.0

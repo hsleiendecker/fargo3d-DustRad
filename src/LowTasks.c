@@ -32,6 +32,13 @@ int PrimitiveVariables () {
   }
 #endif
 
+#ifdef STOKES2POP
+  var |= GRAINSIZE;
+#endif
+#ifdef RADTRANSFER
+  var |= HTHERM;
+#endif
+
   return var;
 }
 
@@ -540,6 +547,15 @@ void SelectFluid(int n) {
   Density = Fluids[n]->Density;
   Energy = Fluids[n]->Energy;
   VxMed = Fluids[n]->VxMed;
+
+#ifdef STOKES2POP
+  GrainSize = Fluids[n]->GrainSize; //HSL
+#ifdef RUNRADTRANS
+  HTherm = Fluids[n]->HTherm;
+  RadTemp= Fluids[n]->RadTemp;
+#endif
+#endif
+
 #ifdef X
   Vx = Fluids[n]->Vx;
   Vx_temp = Fluids[n]->Vx_temp;
@@ -562,6 +578,7 @@ void SelectFluid(int n) {
   Vy0 = Fluids[n]->Vy0;
   Vz0 = Fluids[n]->Vz0;
 #endif
+
 }
 
 void CreateFields() {
@@ -813,6 +830,12 @@ int RestartSimulation(int n) {
   __Restart(Bx, n);
   __Restart(By, n);
   __Restart(Bz, n);
+#endif
+#ifdef STOKES2POP
+  __Restart(GrainSize,n); //HSL
+#endif
+#ifdef RUNRADTRANS
+  __Restart(HTherm,n); //HSL
 #endif
 #endif
   

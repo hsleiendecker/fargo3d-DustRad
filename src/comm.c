@@ -252,6 +252,14 @@ void comm_cpu (int options) {
   if (options & EMFZ)
     f[nvar++] = Emfz;
 #endif
+#ifdef STOKES2POP
+  if (options & GRAINSIZE)
+    f[nvar++] = GrainSize; //HSL
+#endif
+#ifdef RADTRANSFER
+  if (options & HTHERM)
+    f[nvar++] = HTherm; //HSL
+#endif
   if (nvar == 0) return;
   if (nvar > MAX_FIELDS_PER_COMM) {
     mastererr ("Too many fields sent in one communication\n");

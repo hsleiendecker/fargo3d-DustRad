@@ -130,6 +130,9 @@ void ChangeArch() {
   Floor = Floor_cpu; 
   Reset_field = Reset_field_cpu; 
   //-----------------------------------------------------
+ 
+  _radtransfer_azi = _radtransfer_azi_cpu; //HSL
+  //------------------------------------------------------
 
   VanLeerX_PPA_a    = VanLeerX_PPA_a_cpu;
   VanLeerX_PPA_b    = VanLeerX_PPA_b_cpu;

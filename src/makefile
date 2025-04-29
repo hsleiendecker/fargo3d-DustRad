@@ -127,17 +127,17 @@ endif
 #LINUX PLATFORM (GENERIC, default)
 #FARGO_ARCH must be set to LINUX
 CC_LINUX      = gcc 
-SEQOPT_LINUX  = -O3
+SEQOPT_LINUX  = -O3 -ffast-math -mtune=native
 PARAOPT_LINUX = ${SEQOPT_LINUX}
 PARACC_LINUX  = mpicc
-LIBS_LINUX    = -lm
+LIBS_LINUX    = -lm  
 INC_LINUX     = 
 NVCC_LINUX    = nvcc
 CUDAOPT_LINUX = -O3 -w #-arch=sm_XX # try utils/cuda/get_cuda_sm.sh
 PARAINC_LINUX = 
 PARALIB_LINUX =
 CUDAINC_LINUX = -I${CUDA}/include/
-CUDALIB_LINUX = -L${CUDA}/lib64/  -lcudart -lstdc++
+CUDALIB_LINUX = -L${CUDA}/lib64/  -lcudart -lstdc++ 
 CXX_LINUX     = g++ -stdlib=libstdc++
 CXXPARA_LINUX = mpic++ -stdlib=libstdc++
 #---------------------------------------------------------------------
@@ -305,7 +305,7 @@ EXENAME  = ../fargo3d  #Name and location of the executable file
 
 VPATH=${SETUPSDIR}/${SETUP}:${STDDIR}:${SCRIPTSDIR}:${SRCDIR}
 
-#---------------#Sequential and parallel objects----------------------
+#---------------#Sequential and parallel objects------- #HSL added Rad
 MAINOBJ  = LowTasks.o psys.o main.o param.o var.o usage.o   	    \
 	   split.o comm.o CompPresIso.o CompPresPoly.o         	    \
 	   boundary.o checknans.o 				    \
@@ -317,7 +317,7 @@ MAINOBJ  = LowTasks.o psys.o main.o param.o var.o usage.o   	    \
 	   substep2_a.o substep2_b.o condinit.o     		    \
 	   output.o output2d.o output_vtk.o 			    \
 	   output_vtk_merging.o			                    \
-	   algogas.o planets.o runge_kutta.o	        	    \
+	   algogas.o planets.o runge_kutta.o   	    \
 	   stockholm.o mhd.o potential.o	           	    \
 	   timeinfo.o allocate.o              		      	    \
 	   defout.o fresh.o  light_global_dev.o          	    \
@@ -366,6 +366,7 @@ MAINOBJ  = LowTasks.o psys.o main.o param.o var.o usage.o   	    \
 	   nimhd_ohmic_diffusion.o				\
 	   nimhd_ohmic_diffusion_coeff.o			\
 	   compute_jx.o compute_jy.o compute_jz.o		\
+	   Rad_main.o Rad_surface.o Rad_flux.o Rad_geometry.o 
 
 #-----------------------#Cuda objects---------------------------------
 GPU_OBJ  =  reduction_sum_device.o reduction_min_device.o	\

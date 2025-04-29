@@ -100,6 +100,13 @@ struct fluid {
   struct field2D *VxMed;
   struct field *Density;
   struct field *Energy;
+ 
+//#ifdef STOKES2POP
+  struct field *GrainSize; // HSL
+  struct field *HTherm;
+  struct field *RadTemp;
+//#endif
+
   struct field *Vx;
   struct field *Vx_temp;
   struct field *Vy;
@@ -116,6 +123,7 @@ struct fluid {
   struct field2D *Vy0;
   struct field2D *Vz0;
 #endif
+
 };
 
 struct field2D { //Multiple 2D fields on code (azimuthal averages, etc.)
@@ -200,3 +208,4 @@ struct state_vector {
   real vy;
   real vz;
 };
+

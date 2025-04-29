@@ -13,7 +13,7 @@ real dt;
 real dtemp = 0.0;
 
 int main(int argc, char *argv[]) {
-  
+
   int   i=0, OutputNumber = 0, d;
   char  sepline[]="===========================";
   sprintf (FirstCommand, "%s", argv[0]);
@@ -173,6 +173,7 @@ int main(int argc, char *argv[]) {
 #ifndef MPICUDA
   SelectDevice(CPU_Rank);
 #endif
+
   InitVariables ();
   MPI_Barrier(MPI_COMM_WORLD);
   ReadDefaultOut ();
@@ -270,7 +271,7 @@ OMEGAFRAME (which is used afterwards to build the initial Vx field. */
   if (StretchOldOutput == YES) {
     StretchOutput (StretchNumber);
   }
-  
+ 
   MULTIFLUID(comm(ENERGY)); //Very important for isothermal cases!
 
   /* This must be placed ***after*** reading the input files in case of a restart */
@@ -343,10 +344,8 @@ OMEGAFRAME (which is used afterwards to build the initial Vx field. */
     if (i==NTOT)
       break;
     
-    dtemp = 0.0;
-    
+    dtemp = 0.0;  
     while (dtemp<DT) { // DT LOOP
-      
       /// AT THIS STAGE Vx IS THE INITIAL TOTAL VELOCITY IN X
 #ifdef X
 #ifndef STANDARD
@@ -381,7 +380,7 @@ OMEGAFRAME (which is used afterwards to build the initial Vx field. */
       dtemp+=dt;
       if(dtemp>DT)  dt = DT - (dtemp-dt); //updating dt
       //------------------------------------------------------------------------
-      
+
       //------------------------------------------------------------------------
       /* We now compute the total density of the mesh. We need first
 	 reset an array and then fill it by adding the density of each
@@ -389,13 +388,22 @@ OMEGAFRAME (which is used afterwards to build the initial Vx field. */
       FARGO_SAFE(Reset_field(Total_Density)); 
       MULTIFLUID(ComputeTotalDensity()); 
       //------------------------------------------------------------------------
-
-      
 #ifdef COLLISIONPREDICTOR
       FARGO_SAFE(Collisions(0.5*dt, 0)); // 0 --> V is used and we update v_half.
 #endif
-      
+
       MULTIFLUID(Sources(dt)); //v_half is used in the R.H.S
+      //Run Radiative Transfer after the original source step
+#ifdef RUNRADTRANS
+      FARGO_SAFE(RadTransfer(dt)); //HSL
+#else
+#ifdef ADIABATIC
+      FARGO_SAFE(thermal_relaxation(dt));
+#endif
+#ifdef STOKES2POP
+      FARGO_SAFE(DustEnergyCorrection());//HSL
+#endif
+#endif
 
 #ifdef DRAGFORCE
       FARGO_SAFE(Collisions(dt, 1)); // 1 --> V_temp is used.
@@ -404,16 +412,16 @@ OMEGAFRAME (which is used afterwards to build the initial Vx field. */
 #ifdef DUSTDIFFUSION
       FARGO_SAFE(DustDiffusion_Main(dt));
 #endif
-      
-      MULTIFLUID(Transport(dt));
 
+      MULTIFLUID(Transport(dt));
+      
       PhysicalTime+=dt;
       Timestepcount++;
 
 #ifdef STOCKHOLM
       MULTIFLUID(StockholmBoundary(dt));
 #endif
-
+      
       //We apply comms and boundaries at the end of the step
       MULTIFLUID(FillGhosts(PrimitiveVariables()));
 

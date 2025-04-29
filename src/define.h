@@ -95,6 +95,9 @@
 #define VXTEMP 2048L
 #define VYTEMP 4096L
 #define VZTEMP 8192L
+#define GRAINSIZE 16384L //HSL: no idea...
+#define HTHERM 32768L //HSL
+#define RADTEMP 65536L //HSL
 
 /////////////////////////////////////////////////////
 //Definitions relative to Fine Grain Monitoring 
@@ -417,6 +420,8 @@
 #endif
 #define l2D ((j)+((k)*(Ny+2*NGHY)))
 #define l2D_int ((j)+((k)*(Ny+2*NGHY)))
+
+#define la (i+(j)*NX/CPU_Number)  //HSL
 
 #else //defined __GPU
 

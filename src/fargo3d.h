@@ -40,6 +40,8 @@
 #include "prototypes.h"
 //#endif
 
+#include "Rad_declare.h" //HSL
+
 #include "param.h"
 
 #ifndef __LOCAL // ONLY VAR.C HAS __LOCAL

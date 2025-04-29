@@ -112,6 +112,11 @@ Field *Density;
 Field *Energy;
 Field *Pressure;
 
+Field *GrainSize; //HSL
+//Field *E_grow; //HSL
+Field *HTherm; //HSL
+Field *RadTemp; //HSL
+
 Field *Total_Density;
 
 Field *QL;
@@ -392,6 +397,9 @@ void (*SetupHook1)();
 
 void (*_collisions)(real,int,int,int,int);
 void (*Floor)();
+
+void (*_radtransfer)();//HSL
+void (*_radtransfer_azi)();//HSL
 
 void (*__WriteField)();
 void (*__Restart)(Field*,int);

@@ -13,6 +13,7 @@ void SubStep1_y_cpu (real dt) {
   INPUT(Pressure);
   INPUT(Density);
   INPUT(Pot);
+
 #ifdef X
   INPUT(Vx);
 #ifdef COLLISIONPREDICTOR
@@ -42,6 +43,20 @@ void SubStep1_y_cpu (real dt) {
   real* p   = Pressure->field_cpu;
   real* pot = Pot->field_cpu;
   real* rho = Density->field_cpu;
+
+#ifdef STOKES2POP
+  INPUT(GrainSize); //HSL
+  //INPUT(E_grow); //HSL
+  real* grainsize = GrainSize->field_cpu; //HSL
+  //real* e_grow = E_grow->field_cpu; //HSL
+#ifdef RUNRADTRANS
+  INPUT(HTherm); //HSL
+  real* htherm = HTherm->field_cpu;
+  INPUT(RadTemp); //HSL
+  real* radtemp = RadTemp->field_cpu;
+#endif
+#endif
+
 #ifdef X
   real* vx      = Vx->field_cpu;
 #ifdef COLLISIONPREDICTOR

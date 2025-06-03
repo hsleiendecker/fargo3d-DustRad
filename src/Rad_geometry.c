@@ -162,66 +162,6 @@ double array_interp2(double x, double y, double r0, double *rpos,
   return val;
 }
 
-double array_interp4(double x, double y, double r0, double *rpos, 
-                    double dphi, double *arr, double *arr2, double *arr3, float *arr4,
-                    double *val2, double *val3, float *val4)
-{
-  // interpolate between points to get value of the array at off-grid spots
-   
-  int ir, iphi, iphi_p1, ll, ll_p1, ir_found, dir;
-  double r, phi, cr, cphi, val, dr;
-  int full_size_y = NY+2*NGHY;
-
-  r = cartesian2cylindrical(x,y,&r,&phi);
-
-  if(r<rpos[0]*5.2) r=rpos[0]*5.2;
-
-  if(((toupper(*SPACING)) == 'L') && ((toupper(*(SPACING+1))) == 'O')){
-    dr = (log(rpos[NY+2*NGHY-1]*5.2)-log(rpos[0]*5.2))/(NY+2*NGHY-1);
-    ir = (int)((log(r)-log(rpos[0]*5.2))/dr);
-    if(ir<0) printf("r=%f YMIN=%f dr=%E\n",r,YMIN*5.2,dr);
-    if(ir<full_size_y-1) dr = (rpos[ir+1]-rpos[ir])*5.2;
-    else  dr = (rpos[ir]-rpos[ir-1])*5.2;
-  }
-  else{
-    dr = (rpos[1]-rpos[0])*5.2;
-    ir = (int) ((r-rpos[0]*5.2)/dr);
-  } 
-  iphi = (int) ((phi+M_PI)/dphi);
-  iphi_p1 = (iphi+1)%NX;
-  
-  cr = (r-rpos[ir]*5.2)/dr;
-
-  cphi = (phi-(-M_PI+iphi*dphi))/dphi;
-  
-  // linear interpolation in r and phi
-  if(ir<NY+2*NGHY-1){
-    ll = iphi + ir*NX;
-    ll_p1 = iphi_p1 + ir*NX;
-
-    val = (1.0-cphi)*((1.0-cr)*(arr[ll]) + cr*(arr[ll+Nx]))
-       +cphi*((1.0-cr)*(arr[ll_p1]) + cr*(arr[ll_p1+Nx]));
-       
-    *val2 = (1.0-cphi)*((1.0-cr)*(arr2[ll]) + cr*(arr2[ll+Nx]))
-       +cphi*((1.0-cr)*(arr2[ll_p1]) + cr*(arr2[ll_p1+Nx]));
-
-    *val3 = (1.0-cphi)*((1.0-cr)*(arr3[ll]) + cr*(arr3[ll+Nx]))
-       +cphi*((1.0-cr)*(arr3[ll_p1]) + cr*(arr3[ll_p1+Nx]));
-
-    *val4 = (1.0-cphi)*((1.0-cr)*(arr4[ll]) + cr*(arr4[ll+Nx]))
-       +cphi*((1.0-cr)*(arr4[ll_p1]) + cr*(arr4[ll_p1+Nx]));
-  }
-  else{
-    ll = iphi + (NY+2*NGHY-1)*NX;
-    ll_p1 = iphi_p1 + (NY+2*NGHY-1)*NX;
-    val = (1.0-cphi)*arr[ll]+cphi*arr[ll_p1];
-    *val2 = (1.0-cphi)*arr2[ll] +cphi*arr2[ll_p1];
-    *val3 = (1.0-cphi)*arr3[ll] +cphi*arr3[ll_p1];
-    *val4 = (1.0-cphi)*arr4[ll] +cphi*arr4[ll_p1];
-  }
-
-  return val;
-}
 
 double integrate_gauss(double x1, double x2, int printint){
   int n;

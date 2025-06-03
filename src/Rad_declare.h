@@ -61,7 +61,6 @@ struct var_struct {
   double *midx, *midy, *midz;
   double *F_irr;
   double *omeg;
-  double *d0_starx, *d0_stary, *d0_starz; 
   double *c1p, *c2p, *c3p;
   double *mu;
   /*double *mu_std, *omeg_box;
@@ -82,27 +81,23 @@ double cylindrical2cartesian(double r, double phi, double *rx,double *ry);
 double array_interp(double x, double y, double r0, 
                     double dr, double dphi, double *arr);
 double array_interp2(double x, double y, double r0, double *rpos, 
-                    double dphi, double *arr, double *arr2, double *val2);  
-double array_interp4(double x, double y, double r0, double *rpos, 
-                    double dphi, double *arr, double *arr2, double *arr3, float *arr4,
-                    double *val2, double *val3, float *val4);  
-double B_flux_azi(struct var_struct *VS, double *full_H, double *full_dens,
-                     int i, int j, int ii, int jj, int i_shift, int ll,
-                     double *nu_omega, int ygrid, double ox, double oy, double oz,
-                     double opac, double g_param, double r, double dr, double r0,
-                     double *tau_array, int *flux_method);
+                    double dphi, double *arr, double *arr2, double *val2);   
 
 
-void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,
+void calc_flux_azi(struct disk_parameters *DP,struct disk_opacity *opacity,
                    struct var_struct *VS, double *full_dens, double *full_H,
-                   double *full_surf, float *full_cs, double *flux_azi, double *dens_azi,
+                   double *full_surf, double *flux_azi, double *dens_azi,
                    int opac_i, double *rpos);	
-double B_flux_azi5(struct var_struct *VS, double *full_H, double *full_dens,
+double B_flux_azi(struct var_struct *VS, double *full_H, double *full_dens,
                      int i, int j, int ii, int jj, int i_shift, int ll,
                      double *nu_omega, int ygrid, double ox, double oy, double oz,
                      struct disk_opacity *opacity, double r, double *rpos, double r0,
                      double *tau_return, int *flux_method, double tau_min,
-                     double ph_nx, double ph_ny, double ph_nz, double zph);      
+                     double zph);     
+void photosphere_range(int *j_steps, int *i_steps, int n_j_steps, int n_i_steps,
+                      int **jmins, int **jmaxs, double *rpos, double *full_dens,
+                     double *full_H, double *full_surf, double opacR);
+void midplane_intensity_interp(int *i_steps, int *j_steps, int n_i_steps, int n_j_steps, double *flux_azi);
 void viscous_accretion_flux(double *flux_sub, struct disk_parameters *DP, 
                             struct disk_opacity *opacity);
 
@@ -110,10 +105,7 @@ void viscous_accretion_flux(double *flux_sub, struct disk_parameters *DP,
 #define NFIT 8
 double fit_alpha(int npts, double rvals[], double hvals[]);
 
-// useful functions 
 double F_incident(double T_star, double r_star, double a_AU);
-double Hill_radius(double M_star, double M_planet, double a_au);
-double Incident_Slope(double mu0);
 
 // disk geometry 
 //void calcSurface(double H0, double rhill, double alpha, double distance);
@@ -143,20 +135,15 @@ double integrate_gauss(double x1, double x2, int printint);
 
 double moment_solidangle_strip(double r0, double z0,
 			       double rin, double zin,
-			       double rout, double zout);
-
-void calc_flux_azi(struct disk_parameters *DP,struct disk_opacity *opacity,
-                   struct var_struct *VS, double *full_dens, double *full_H,
-                   double *full_surf,double *flux_azi, double *dens_azi,
-                   int opac_i);	       
+			       double rout, double zout);       
 
 
-double B_inner_disk_HSL(int j, int j_shift, double *full_surf, double *rpos,
+double B_inner_disk(int j, int j_shift, double *full_surf, double *rpos,
                        double *nu_omega_tot, struct disk_parameters *DP, 
-                       struct disk_opacity *opacity, struct var_struct *VS, int cells_in);
-double B_outer_disk_HSL(int j, int j_shift, double *full_surf, double *rpos,
+                       struct disk_opacity *opacity, struct var_struct *VS, int cells_in, int irange);
+double B_outer_disk(int j, int j_shift, double *full_surf, double *rpos,
                       double *nu_omega_tot, struct disk_parameters *DP, 
-                      struct disk_opacity *opacity, struct var_struct *VS);
+                      struct disk_opacity *opacity, struct var_struct *VS, int irange);
 
 
 double B_unpert_los(double tau_los, double mu, double F_irr, 

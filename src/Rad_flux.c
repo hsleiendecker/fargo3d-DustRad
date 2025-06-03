@@ -12,9 +12,9 @@ const double
   earth_mass = 5.9736e27;
                
 
-double B_inner_disk_HSL(int j, int j_shift, double *full_surf, double *rpos,
+double B_inner_disk(int j, int j_shift, double *full_surf, double *rpos,
                       double *nu_omega_tot, struct disk_parameters *DP, 
-                      struct disk_opacity *opacity, struct var_struct *VS, int cells_in)
+                      struct disk_opacity *opacity, struct var_struct *VS, int cells_in, int irange)
 {
   //this function calculates the flux from the disk that is interior to
   //the simulation box. Because we don't have detailed information on this
@@ -62,7 +62,8 @@ double B_inner_disk_HSL(int j, int j_shift, double *full_surf, double *rpos,
     rsurf = 0.5*(r1+r2);
     zsurf = 0.5*(z1+z2);      
     mu_i = 4.0e-2; //incident_angle(rsurf,zsurf,dzdr,0.0,DP->R_star);
-    nu_omega = moment_solidangle_strip(r0,0.0,r1,z1,r2,z2);
+    nu_omega = moment_solidangle_strip(r0,0.0,r1,z1,r2,z2); 
+    nu_omega *= (2*irange)/(NX/6);
     
     Firr = F_incident(DP->T_star,DP->R_star,sqrt(rsurf*rsurf+zsurf*zsurf));   
     B += nu_omega*B_unpert_diffuse(mu_i,Firr,opacity);
@@ -80,9 +81,9 @@ double B_inner_disk_HSL(int j, int j_shift, double *full_surf, double *rpos,
   return B;
 }
 
-double B_outer_disk_HSL(int j, int j_shift, double *full_surf, double *rpos,
+double B_outer_disk(int j, int j_shift, double *full_surf, double *rpos,
                       double *nu_omega_tot, struct disk_parameters *DP, 
-                      struct disk_opacity *opacity, struct var_struct *VS)
+                      struct disk_opacity *opacity, struct var_struct *VS, int irange)
 {
   //this function calculates the flux from the disk that is exterior to
   //the simulation box. Because we don't have detailed information on this
@@ -92,7 +93,7 @@ double B_outer_disk_HSL(int j, int j_shift, double *full_surf, double *rpos,
   double redge, alpha;
   double *rads,*heights;
   int nfit,n,back_j,i;
-  nfit = 4; //was 8
+  nfit = 4; 
   
   back_j = (Ny*CPU_Number+2*NGHY-1);
   r0 = rpos[j]*5.2; 
@@ -119,7 +120,7 @@ double B_outer_disk_HSL(int j, int j_shift, double *full_surf, double *rpos,
   B = 0.0; 
   // assume a slope consistent with a power-law surface 
   r1 = redge;
-  z1 = full_surf[Nx/2+back_j*Nx];//heights[nfit-1];
+  z1 = full_surf[Nx/2+back_j*Nx];
   r2 = redge+dr;
   z2 = z1*pow(r2/r1,alpha);
   
@@ -134,6 +135,7 @@ double B_outer_disk_HSL(int j, int j_shift, double *full_surf, double *rpos,
     Firr = F_incident(DP->T_star,DP->R_star,sqrt(rsurf*rsurf+zsurf*zsurf));   
     B += nu_omega*B_unpert_diffuse(mu_i,Firr,opacity);
     *nu_omega_tot += nu_omega;
+    nu_omega *= (2*irange)/(NX/6);
 
     z1 = z2;
     r1 = r2;
@@ -177,14 +179,15 @@ double B_unpert_diffuse(double mu, double F_irr,
   return B;
 }	
 
-void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,struct var_struct *VS,
-                   double *full_dens, double *full_H, double *full_surf, float *full_cs,
+void calc_flux_azi(struct disk_parameters *DP,struct disk_opacity *opacity,struct var_struct *VS,
+                   double *full_dens, double *full_H, double *full_surf,
                    double *flux_azi, double *dens_azi,int opac_i, double *rpos)
 {
-  //this function calculates the flux at the midplane. A fraction of the
+  //this function calculates the flux at the midplane. A portion of the
   //midplane points have flux from all of the surface points calculated using
   //the moment method from Jang-Condell 2008. The remaining midplane points
-  //have their received flux calculated by interplation from the other points
+  //have their received flux calculated by interplation from the other points.
+  //The ratio of these points is tunable with input parameters in .par file
   
   int i, j, k, ii, jj, ii2, jj2, ll, l2;
   int jmin, jmax, jmin_prev, jmax_prev, jmin2, jmax2;
@@ -197,7 +200,6 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
   int im2, im1, ip1, ip2;
   double Jmin =  5.67e-5*1e4/4/M_PI;
 
-  
   int size_x = NX/CPU_Number;
   int size_y = NY+2*NGHY;
   int full_size = NX*(NY+2*NGHY);
@@ -205,6 +207,9 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
   i_shift = CPU_Rank*size_x;
   vert.x = 0.0; vert.y=0.0; vert.z=1.0;
 
+  //setup the step sizes along the midplane using the 
+  //user inputs for radiative transfer resolution
+  //NX_RAD and NY_RAD are the total steps along the midplane
   int i_step, j_step, n_i_steps, n_j_steps;
   int *i_steps, *j_steps;
   int no_interp=0;
@@ -230,21 +235,14 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
   i=j=k=0;
   origin.z = 0.0;
 
-  double jlim1,jlim2,ilim1,ilim2;
-
   double tau_return;
   int flux_method;
-  double flux_main, lim_min, lim_max, tau_lim, lim_ratio, calc_frac;
-  int jp1,jm1,ip3, l3,j3,i3,i4, j3min, j3max, calc_step,l_region,l_region_start;
-  int quick1, full1, quick2, full2, skip2, tau2, tot_count, calc_count;
+  double flux_main, lim_min, lim_max, tau_lim, lim_ratio, calc_frac, calc_count;
+  int jp1,jm1,ip3, l3,j3,i3, j3min,calc_step,l_region,l_region_start;
   double dx1,dy1,dz1,dx2,dy2,dz2;
   int side_x1,side_x2,side_y1,side_y2,lenx,leny,region_size;
   double sidex1,sidex2,sidey1,sidey2, midx_ll, midy_ll, dl1, tau_l;
   float Jmin_10K = 1.8e-1; //erg/cm2/s
-
-  quick1=quick2=full1=full2=tau2=skip2=0;
-  int point_considered = 0;
-  int print_flux_irr=1;
 
   lim_min = FLXLIMMIN; lim_max = FLXLIMMAX; 
   lim_ratio = log(lim_max/lim_min);
@@ -259,72 +257,22 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
   leny=side_y1+side_y2+1;
   region_size = lenx*leny;
 
- 
-  point s[4];
-  vector v;
-  double ph_nx, ph_ny, ph_nz, mag, r_shadow, z_shadow, zph, zph2, max_slope, cos_surf;
-  int jmins[n_i_steps][n_j_steps], jmaxs[n_i_steps][n_j_steps];
+  double mag, zph, zph2;
+  int **jmins, **jmaxs;
+  jmins = (int **) calloc(n_i_steps,sizeof(int **));
+  jmaxs = (int **) calloc(n_i_steps,sizeof(int **));
+  for(i=0;i<n_i_steps;i++) {
+    jmins[i] = (int *) calloc(n_j_steps,sizeof(int *));
+    jmaxs[i] = (int *) calloc(n_j_steps,sizeof(int *));
+  }
 
+  //find the minimum and maximum radial index to consider for each point,
+  //which depends on clear lines of sight from the photosphere to surface
+  photosphere_range(j_steps, i_steps, n_j_steps, n_i_steps, jmins, jmaxs, 
+                   rpos, full_dens,full_H, full_surf, opacR);
+  
   int jrange = 2;
   int irange = NX/16;
-  int jbuff = 0; //NX/64;
-
-  for(ii2=0; ii2<n_i_steps; ii2++){
-    ii = i_steps[ii2];
-    jmin_prev = 1;
-    jmin2 = 1;
-    jmax_prev = size_y-1;
-    jmax2 = size_y-1;
-    for(jj2=0;jj2<n_j_steps;jj2++){
-      jj = j_steps[jj2];
-      ll = ii+jj*NX;
-      zph = get_photosphere(full_dens[ll], full_H[ll], opacR, 2.0/3, 0.0)*5.2;
-      r = rpos[jj]*5.2;
-
-      max_slope = 0.0;
-      jmin = 1;
-      for(j3=0;j3<jj-jbuff;j3++){
-        zph2 = get_photosphere(full_dens[ii+j3*NX], full_H[ii+j3*NX], opacR, 2.0/3, 0.0)*5.2;
-        if((zph2-zph)/(jj-j3)>max_slope){
-          max_slope = (zph2-zph)/(jj-j3);
-        } 
-      }
-      if(max_slope>0.0){
-        jmin = jj- (int) ((full_surf[ll]-zph)/max_slope*cos(atan(full_surf[ll]/r))) ;
-        if(jmin<1) jmin=1;
-      }
-      if(jmin>1 || jmin_prev>1){
-        if(jmin>=jmin_prev) jmin2 = (jmin+(jmin_prev+j_step))/2;
-        else jmin2 = (3*jmin+jmin_prev+j_step)/4;
-      }
-      jmin_prev = jmin2;
-      jmins[ii2][jj2]=jmin2;  
-    }
-
-    max_slope = 0.0;
-    jmax = size_y-1;
-    for(jj2=n_j_steps-1;jj2>=0;jj2--){
-      jj = j_steps[jj2];
-      ll = ii+jj*NX;
-      zph = get_photosphere(full_dens[ll], full_H[ll], opacR, 2.0/3, 0.0)*5.2;  
-      max_slope=0.0;
-      jmax=size_y-1;
-      for(j3=size_y-1;j3>jj+jbuff;j3--){
-        zph2 = get_photosphere(full_dens[ii+j3*NX], full_H[ii+j3*NX], opacR, 2.0/3, 0.0)*5.2;
-        if((zph2-zph)/(j3-jj)>max_slope) max_slope = (zph2-zph)/(j3-jj);
-      }
-      if(max_slope>0.0){
-        jmax = jj + (int) ((full_surf[ll]-zph)/max_slope/cos(atan(full_surf[ll]/r))) ;
-        if(jmax>size_y-1) jmax=size_y-1;
-      }
-      if(jmax<size_y-1 || jmax_prev<size_y-1){
-        if(jmax<=jmax_prev) jmax2 = (jmax+jmax_prev-j_step)/2;
-        else jmax2 = (3*jmax+jmax_prev-j_step)/4;
-      }
-      jmax_prev = jmax2;
-      jmaxs[ii2][jj2]=jmax2;
-    }
-  }
 
   double plaw_factor;
   real mu = 2.3;
@@ -354,12 +302,11 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
     //calculate the flux from the inner and outer disk beyond the domain.
     //assumed to be axisymmetric, so calculate once at each radius
     nu_om_in=0.0;
-    flux_inner=B_inner_disk_HSL(jj,0,full_surf,rpos,&nu_om_in,
-                                 DP,opacity,VS,jrange-jj)/M_PI;
-      //default size is angular size is Pi/3, but we may not be considering that much
+    flux_inner=B_inner_disk(jj,0,full_surf,rpos,&nu_om_in,
+                                 DP,opacity,VS,jrange-jj,irange)/M_PI;
     nu_om_out=0.0;
-    flux_outer=B_outer_disk_HSL(jj,0,full_surf,rpos,&nu_om_out,
-                                 DP,opacity,VS)/M_PI;                          
+    flux_outer=B_outer_disk(jj,0,full_surf,rpos,&nu_om_out,
+                                 DP,opacity,VS,irange)/M_PI;                          
 
     for(ii2=0; ii2<n_i_steps; ii2++){
       ii = i_steps[ii2];
@@ -372,26 +319,26 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
       
       origin.x = VS->midx[ll];
       origin.y = VS->midy[ll]; 
+      //reset the total intensity calculate for this new midplane point
       nu_omega_sub = 0.0;
       flux_sub = 0.0;
-      //loop through all surface elements
-
       i=ii;
       j=jj;
       r = rpos[j]*5.2; 
       dr = (rpos[j+1]-rpos[j])*5.2;
       tau_min = get_tau_min(ii,jj,full_dens,full_H,opac/opacity->ratio,rpos,r0,VS);
 
+      //first calculate the intensity from the cell directly above
 #ifdef AZISHADOW
       azi_shadow = 1.0;
       phi = -M_PI+2.0*i/NX*M_PI;
       if(fabs(M_PI/2-fabs(phi))>M_PI/2.0-shade_angle) azi_shadow = shaded;
 #endif
       flux_method=0;
-      flux_main = B_flux_azi5(VS,full_H,full_dens,i,j,ii,jj,i_shift,ll,
+      flux_main = B_flux_azi(VS,full_H,full_dens,i,j,ii,jj,i_shift,ll,
               &nu_omega, NX, origin.x, origin.y, 0.0,
               opacity,r,rpos,r0,&tau_return,&flux_method,tau_min,
-              ph_nx, ph_ny, ph_nz, zph)/M_PI*azi_shadow;
+              zph)/M_PI*azi_shadow;
         
         //if you want to go full plane parallel
         flux_sub = flux_main;
@@ -403,6 +350,7 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
         jmax= jmaxs[ii2][jj2];
         if(jmin<1) jmin=1;
         if(jmax>size_y-1) jmax=size_y-1;
+        // loop through all designated surface elements
         for(j=jmin;j<jmax;j+=leny){   
           for(i2=imin;i2<imax;i2+=lenx){
             i = (i2+NX)%NX;
@@ -415,21 +363,24 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
 #endif
             //add the flux from this particular surface cell to the total  
             flux_method=0;       
-            flux_sub2 = B_flux_azi5(VS,full_H,full_dens,i,j,ii,jj,i_shift,ll,
+            flux_sub2 = B_flux_azi(VS,full_H,full_dens,i,j,ii,jj,i_shift,ll,
                     &nu_omega, NX, origin.x, origin.y, 0.0,
                     opacity,r,rpos,r0,&tau_return,&flux_method,tau_min,
-                    ph_nx, ph_ny, ph_nz, zph)/M_PI*azi_shadow;
+                     zph)/M_PI*azi_shadow;
             nu_omega_sub2 = nu_omega;
             calc_count = 1;
 
+            //update the maximum intensity for this midplane point
             if(flux_sub2>flux_main){
               flux_main=flux_sub2;
             } 
-            if(flux_sub2<lim_min*flux_main){
+            //check if this surface region needs finer sampling
+            if(flux_sub2<=lim_min*flux_main){
               flux_sub2*=region_size;
               nu_omega_sub2*=region_size;
             }
             else{
+              //finer sampling of surface region
               if(flux_method==1){
                 dx1=(VS->midx[ll]-VS->midx[l]);
                 dy1=(VS->midy[ll]-VS->midy[l]);
@@ -439,38 +390,44 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
                 midy_ll = VS->midy[ll];      
                 tau_l = tau_return;   
               }
+              //use psuedo-random starting point for evenly space additional
+              //steps for this surface region
               j3min=j-side_y1; if(j3min<1) j3min=1;
               calc_frac = 1.0/(log(flux_sub2/flux_main/lim_min)/lim_ratio);
-              calc_step = (int) (1.0/(log(flux_sub2/flux_main/lim_min)/lim_ratio));
+              calc_step = (int) (calc_frac);
               if(calc_step%lenx==0) calc_step++;
               l_region_start = (ii+jj+i+j)%calc_step;
               for(l_region=l_region_start;l_region<region_size;l_region+=calc_step){
                 i3 = (l_region%lenx+i-side_x1+NX)%NX;
                 j3 = l_region/lenx+j-side_y1;
-                if(j3==j && i3==i) i3++;
-                if(j3<1) j3=1; if(j3>size_y-1) j3=size_y-1;
-                l3 = j3*NX+i3;
-                r = rpos[j3]*5.2; 
-#ifdef AZISHADOW
-                azi_shadow = 1.0;
-                phi = -M_PI+2.0*i3/NX*M_PI;
-                if(fabs(M_PI/2-fabs(phi))>M_PI/2.0-shade_angle) azi_shadow = shaded;
-#endif
-                if(flux_method==1){
-                  flux_method=5;                  
-                  dx2=(midx_ll-VS->midx[l3]);
-                  dy2=(midy_ll-VS->midy[l3]);
-                  dz2=VS->midz[l3];
-                  tau_return = tau_l*sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2)/dl1;
-                  if(tau_return<0.0) printf("uh oh %d %d,%d->%d,%d tau_l=%.2E dl1=%.2E\n",CPU_Rank,i,j,ii,j,tau_l,dl1);
+                if(j3==j && i3==i){
+                  if(calc_step>1) i3++;
+                  else j3=0;
+                }                 
+                if(j3>1 && j3<size_y-1){
+                  l3 = j3*NX+i3;
+                  r = rpos[j3]*5.2; 
+  #ifdef AZISHADOW
+                  azi_shadow = 1.0;
+                  phi = -M_PI+2.0*i3/NX*M_PI;
+                  if(fabs(M_PI/2-fabs(phi))>M_PI/2.0-shade_angle) azi_shadow = shaded;
+  #endif
+                  if(flux_method==1){
+                    flux_method=5;                  
+                    dx2=(midx_ll-VS->midx[l3]);
+                    dy2=(midy_ll-VS->midy[l3]);
+                    dz2=VS->midz[l3];
+                    tau_return = tau_l*sqrt(dx2*dx2 + dy2*dy2 + dz2*dz2)/dl1;
+                  }
+                  flux_sub2 += B_flux_azi(VS,full_H,full_dens,i3,j3,ii,jj,i_shift,ll,
+                    &nu_omega, NX, origin.x, origin.y, 0.0,
+                    opacity,r,rpos,r0,&tau_return,&flux_method,tau_min,
+                    zph)/M_PI*azi_shadow;
+                  nu_omega_sub2 += nu_omega;
+                  calc_count++;
                 }
-                flux_sub2 += B_flux_azi5(VS,full_H,full_dens,i3,j3,ii,jj,i_shift,ll,
-                  &nu_omega, NX, origin.x, origin.y, 0.0,
-                  opacity,r,rpos,r0,&tau_return,&flux_method,tau_min,
-                  ph_nx, ph_ny, ph_nz, zph)/M_PI*azi_shadow;
-                nu_omega_sub2 += nu_omega;
-                calc_count++;
               }// end for loop of additional l points
+              //scale the intensity with the additional surface points
               flux_sub2 *= 1.0*region_size/calc_count; 
               nu_omega_sub2 *= 1.0*region_size/calc_count;
             }//end else 
@@ -495,26 +452,28 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
         }
 
         if(nu_omega_sub>0.0) flux_azi[l2] = flux_sub*M_PI/nu_omega_sub + Jmin_10K; 
-        else flux_azi[l2] = Jmin_10K;
-        
-        /*if(jj2<n_j_steps-1){
-          plaw_factor = exp(-pow(rpos[jj2]-YMIN+dr/5.2*NGHY,2)/2/pow((YMAX-YMIN)/40,2));
-          l3 = ii-i_shift + j_steps[jj2+1]*NX/CPU_Number;
-          cs0  = ASPECTRATIO*pow(rpos[jj]/R0,FLARINGINDEX)*sqrt(G_CGS*MSTAR_CGS/rpos[jj]/R0_CGS);
-          f0=StfBolt*pow(cs0*cs0*mu*mp/k_b/GAMMA,4)/M_PI;
-          flux_azi[l2] = exp((1-plaw_factor)*log(flux_azi[l2])
-                       + plaw_factor*log(f0));
-        }*/
-
-    if(isnan(flux_azi[l2]) || isinf(flux_azi[l2]) || flux_azi[l2]<0.0){
-      printf("second NaN catch: CPU=%d - %d,%d\n",CPU_Rank,ii,jj);
-      printf("           fs=%.2E nuom=%.2E mu=%.2E tau_min=%.2E\n",flux_azi[l2],nu_omega_sub,VS->mu[l],tau_min);
-      exit(0);
-    }
-  
+        else flux_azi[l2] = Jmin_10K; 
     }
   }
 
+  //interpolate intensity along midplane for the additional cells
+  midplane_intensity_interp(i_steps, j_steps, n_i_steps, n_j_steps, flux_azi);
+  
+  free(j_steps);
+  free(i_steps);
+  for(i=0;i<n_i_steps;i++) {
+    free(jmins[i]);
+    free(jmaxs[i]);
+  }
+  free(jmins);
+  free(jmaxs);
+}
+
+void midplane_intensity_interp(int *i_steps, int *j_steps, int n_i_steps, int n_j_steps, double *flux_azi){
+  int size_y = NY+2*NGHY;
+  int size_x = NX/CPU_Number;
+  int i_shift = CPU_Rank*size_x;
+  int i,j,jj2,ii2;
   double w, w1, w2, w3, w4;
   //2 1-D cubic interps of log(flux)
   if(NY_RAD<NY){
@@ -551,19 +510,11 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
             flux_azi[la]=exp((w2*log(flux_azi[j_steps[jj2-1]*size_x+i])
                                +w3*log(flux_azi[j_steps[jj2]*size_x+i]))/w);
         }
-        if(isnan(flux_azi[la]) || isinf(flux_azi[la])){
-          printf("error in flux radial interpolation: CPU=%d - %d,%d\n",CPU_Rank,i,j);
-          printf("    flux=%.2E f-1=%.2E, w=%.2f    f+1=%.2E, w=%.2f  \n",
-             flux_azi[la],flux_azi[j_steps[jj2-1]*size_x+i],w2,flux_azi[j_steps[jj2]*size_x+i],w3);
-          if(jj2>2 && jj2<n_j_steps-2)   printf("     and    f-2=%.2E, w=%.2f    f+2=%.2E, w=%.2f  \n",
-             flux_azi[j_steps[jj2-2]*size_x+i],w1,flux_azi[j_steps[jj2+1]*size_x+i],w4);
-          exit(0);
-        }
       }  
     }
   }
   if(NX_RAD<NX){
-    //now linearly interpolate in the azimuth at every r
+    //now linearly interpolate in the azimuth at every radius
     for(j=0;j<size_y;j++){
       ii2=0;
       for(i=1;i<size_x-1;i++){
@@ -578,53 +529,115 @@ void calc_flux_azi5(struct disk_parameters *DP,struct disk_opacity *opacity,stru
       } 
     }
   }
-  
-  free(j_steps);
-  free(i_steps);
+}
+
+void photosphere_range(int *j_steps, int *i_steps, int n_j_steps, int n_i_steps,
+                       int **jmins, int **jmaxs, double *rpos, double *full_dens,
+                      double *full_H, double *full_surf, double opacR){
+  //function to find the minimum and maximum indices with an unobstructed
+  //line of sight from the photosphere to the disk surface at each point
+
+  int ii2, jj2, ll, jj, ii, j3;
+  int jmin_prev, jmax_prev, jmin, jmax, jmax2, jmin2;
+  int jbuff = NX/64;
+  real zph, zph2, max_slope, r; 
+  int size_y = NY+2*NGHY;
+  int i_step, j_step;
+  i_step = NX/NX_RAD; j_step = (int) NY/NY_RAD;  
+
+  //loop through each point to find maximum slope of line of sight
+  for(ii2=0; ii2<n_i_steps; ii2++){
+    ii = i_steps[ii2];
+    jmin_prev = 1;
+    jmin2 = 1;
+    jmax_prev = size_y-1;
+    jmax2 = size_y-1;
+    //to find the minima, work from smaller to larger radii
+    for(jj2=0;jj2<n_j_steps;jj2++){
+      jj = j_steps[jj2];
+      ll = ii+jj*NX;
+      //find photosphere above point recieving radiation
+      zph = get_photosphere(full_dens[ll], full_H[ll], opacR, 2.0/3, 0.0)*5.2;
+      r = rpos[jj]*5.2;
+      max_slope = 0.0;
+      jmin = 1;
+      for(j3=0;j3<jj-jbuff;j3++){
+        //get photosphere from each other point to find the slope
+        zph2 = get_photosphere(full_dens[ii+j3*NX], full_H[ii+j3*NX], opacR, 2.0/3, 0.0)*5.2;
+        if((zph2-zph)/(jj-j3)>max_slope){
+          max_slope = (zph2-zph)/(jj-j3);
+        } 
+      }
+      if(max_slope>0.0){
+        jmin = jj- (int) ((full_surf[ll]-zph)/max_slope*cos(atan(full_surf[ll]/r))) ;
+        if(jmin<1) jmin=1;
+      }
+      if(jmin>1 || jmin_prev>1){
+        jmin2 = (jmin+(jmin_prev+j_step))/2;
+      }
+      jmin_prev = jmin2;
+      jmins[ii2][jj2]=jmin2;  
+    }
+
+    max_slope = 0.0;
+    jmax = size_y-1;
+    //to find the maxima, work from larger to smaller radii
+    for(jj2=n_j_steps-1;jj2>=0;jj2--){
+      jj = j_steps[jj2];
+      ll = ii+jj*NX;
+      //find photosphere above point recieving radiation
+      zph = get_photosphere(full_dens[ll], full_H[ll], opacR, 2.0/3, 0.0)*5.2;  
+      max_slope=0.0;
+      jmax=size_y-1;
+      for(j3=size_y-1;j3>jj+jbuff;j3--){
+        //get photosphere from each other point to find the slope
+        zph2 = get_photosphere(full_dens[ii+j3*NX], full_H[ii+j3*NX], opacR, 2.0/3, 0.0)*5.2;
+        if((zph2-zph)/(j3-jj)>max_slope) max_slope = (zph2-zph)/(j3-jj);
+      }
+      if(max_slope>0.0){
+        jmax = jj + (int) ((full_surf[ll]-zph)/max_slope/cos(atan(full_surf[ll]/r))) ;
+        if(jmax>size_y-1) jmax=size_y-1;
+      }
+      if(jmax<size_y-1 || jmax_prev<size_y-1){
+        jmax2 = (jmax+jmax_prev-j_step)/2;
+      }
+      jmax_prev = jmax2;
+      jmaxs[ii2][jj2]=jmax2;
+    }
+  }
 }
 
 
-double B_flux_azi5(struct var_struct *VS, double *full_H, double *full_dens,
+double B_flux_azi(struct var_struct *VS, double *full_H, double *full_dens,
                      int i, int j, int ii, int jj, int i_shift, int ll,
                      double *nu_omega, int ygrid, double ox, double oy, double oz,
                      struct disk_opacity *opacity, double r, double *rpos, double r0,
                      double *tau_return, int *flux_method, double tau_min,
-                     double ph_nx, double ph_ny, double ph_nz, double zph)
+                     double zph)
 {
   //a function to quickly calculate the flux received at one midplane
   //point from one surface point.                
-  double nu, nuph, omega, tau, z_exp, H_root2, dens_int, w1, w2, B, B2, B3, tau2;
+  double nu, omega, tau, z_exp, H_root2, dens_int, w1, w2, B, B2, B3, tau2;
   int k,m, max_m, m_step=1;
   point midpoint, origin;
   vector d0, normal;
   k=0;
-  double d0x,d0y,d0z,d0_mag,d0zph,angle, cutoff, cutoff2,printint=0;
+  double d0x,d0y,d0z,d0_mag,d0zph,angle, cutoff, cutoff2;
   double normx_mod, normy_mod, normz_mod, norm_mag, nu_mod;
- 
-  int ir, iphi, iphi_p1, ll2, ll2_p1, im1, ip1, lm1, lp1;
-  double r2, phi, cr, cphi, val;
-  double erf1,erf0;
+  double erf1,erf0,zph_ll;
 
-  double dtau_prev, dtau, dtau_step, tau1, r1, tau_v, tau_q, tfrac;
+  double dtau_prev, dtau, tau_v;
   double mu;
-  double Tph;
-
-  int full_size; 
-  int size_y = (Ny*CPU_Number+2*NGHY);
 
   double opac = opacity->Planck;
   double opacR = opac/opacity->ratio;
   double g_param = opacity->g_param;
-  double I = 0.0;
 
   d0x = VS->midx[l]-ox;
   d0y = VS->midy[l]-oy;
   d0z = VS->midz[l]-oz;
   d0_mag = sqrt(d0x*d0x+d0y*d0y+d0z*d0z);
 
-  //normx_mod = 0.0;
-  //normy_mod = 0.0;
-  //normz_mod = 1.0;
   //mod normal vector is vertical, hence just d0z remains in dot product
   nu_mod = d0z/d0_mag;
   nu_mod = nu_mod;
@@ -634,7 +647,6 @@ double B_flux_azi5(struct var_struct *VS, double *full_H, double *full_dens,
 
   d0zph = VS->midz[l]-zph;
   d0_mag = sqrt(d0x*d0x+d0y*d0y+d0zph*d0zph);
-  nuph = (ph_nx*d0x+ph_ny*d0y+ph_nz*d0zph)/d0_mag; 
   if(nu<1.0e-2){
     *nu_omega=0.0;
     return 0.0; 
@@ -652,13 +664,9 @@ double B_flux_azi5(struct var_struct *VS, double *full_H, double *full_dens,
   if(mu<=0.0){
     return 0.0; 
   }
-
   
   double tau_v2 = full_dens[l]*opac/2;
   tau = full_dens[l]*opac/2;
-
-  double diminish, zph_l, zph_l_mod, zph_ll, rl, rll, rhol, rholl, z_los;
-
 
   *flux_method=4;
   //run_tau=1;
@@ -671,8 +679,10 @@ double B_flux_azi5(struct var_struct *VS, double *full_H, double *full_dens,
     tau_v = full_dens[ll]*opacR/2;
   }
   if(run_tau==1){
-    //if the optical depth is sufficiently low in the area, then we cannot
-    //assume the diffuse radiation dominates and tau should be calculated
+    //this calculation is currently not set to run. The calculation
+    //of tau is modified by nu and mu because we want tau_s to the star.
+    //However, the code is not currently designed to run for any setups
+    //where tau_s would be small once you break the plane-parallel assumption.
     if(i==ii && j==jj){
       tau=tau_v;
       *tau_return = tau;
@@ -719,7 +729,7 @@ double B_flux_azi5(struct var_struct *VS, double *full_H, double *full_dens,
     *tau_return=tau;
  
   }
-  //this used to be an else if when flux_method=1 was on option I was considering
+  //again, not currently in use. tau_s is large for our setups
   if(*flux_method==5){
     tau = *tau_return;
     c3 = c3p*exp(-g_param*(nu*tau+2/3.0*mu));
@@ -797,6 +807,10 @@ double get_tau_min(int ii, int jj,double *full_dens,double *full_H,double opac,
 
 void viscous_accretion_flux(double *flux_sub, struct disk_parameters *DP, 
                             struct disk_opacity *opacity){
+  //function to add in additional viscous accretion flux, as calculated
+  //in Pringle 1981. Currently not in use as we are considering regions
+  //where stellar irradiation dominates.
+
   double a_inv_cm,tau_d,T_visc4,F_v, Mdot, Mdot_limit, r,dl,dr;
   double omega, viscJ, opacR;
   int i,j,k,ii;
@@ -821,7 +835,7 @@ void viscous_accretion_flux(double *flux_sub, struct disk_parameters *DP,
   for(j=0;j<size_y;j++){
     r = ymed(j)*5.2; 
     dl = 30*(r/5.2-YMIN)/(YMAX-YMIN);
-    omega = sqrt(G_CGS*MSTAR_CGS/pow(r*1.495e13,3));                       //Keplerian frequency
+    omega = sqrt(G_CGS*MSTAR_CGS/pow(r*1.495e13,3));  
     a_inv_cm = 1.0/(r*AU_in_cm);
     for(i=0;i<size_x;i++){
 

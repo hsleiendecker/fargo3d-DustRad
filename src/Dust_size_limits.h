@@ -75,15 +75,10 @@ if(id2==1){
 
   eta = GAMMA*P/r/(2*rho[0][l]/(2.506*cs[l]/omega)*r*omega*omega);
 
-  //E_drift=1 from two-pop-py
   //version from two-pop-py
-  /*a_dr = E_stick*fudge_dr*0.6366*(rho[1][l]+rho[2][l])/rho_s*r*r*omega*omega
-         /(fabs(gamma) * cs[l] * cs[l]);
-    a_df = fudge_fr*2.0*rho[0][l]/(3.142*rho_s)*v_frag*pow(G*MSTAR/r,0.5)
-         /(fabs(gamma) * cs[l] * cs[l]*(1-0.5)); */
-  //version from drazkowska et al 2019
+  //drift size limit from drazkowska et al 2019
   a_dr = fudge_dr*(rho[2][l]/0.97)/(2*fabs(eta)) * 2/(3.1415*rho_s);
-  //Drazkowska et al 2019 version
+  //drift-fragmentation size limit from Drazkowska et al 2019 
   a_df = fudge_fr*v_frag/(fabs(eta)*(r*omega)) * 0.6366*rho[0][l]/rho_s;
 
   if(a0 > a_df) a_df = a0;
@@ -103,7 +98,8 @@ if(id2==1){
         
   tau_grow_ph = dt/tau_grow;  
   a_grow = a1*exp(tau_grow_ph);
-   
+  
+  //determine maximum size and the correct power law for the dust in this limit
   a1 = a_fr;
   plaw = 0.25/0.75;
   if(a_dr < a1){
@@ -119,15 +115,9 @@ if(id2==1){
   if(a_grow < a1){
     a1 = a_grow;
   }
-
-  /*if(a1 < a1i && PhysicalTime>2.0){
-    if (a1<a1i*exp(-20*tau_grow_ph)){
-      a1 = a1i*exp(-20*tau_grow_ph);
-    }
-  }*/
-
   if(a1<a0) a1 = a0;
-
+  
+  //set sizes
   asize[2][l]=  a1;
   asize[1][l]= DUST_A1/R0_CGS*R0;
 }

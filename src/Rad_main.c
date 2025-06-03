@@ -8,8 +8,9 @@ void surface_range(struct disk_parameters *DP,
                  double *full_surf, double *full_dens, double *rpos)
 {
   int i,j,k;
-  double min_ang, angle, angle2, dr, wedges;
+  double dr;
   int j_shift,ll, ll2; 
+  int i_shift, ii, imin, imax, irange;
   int size_y = NY+2*NGHY;
   int size_x = NX;
 
@@ -19,17 +20,15 @@ void surface_range(struct disk_parameters *DP,
   double r0,r,mag,z,omega,dphi,d;
   double mu, sca_frac, abs_frac, g_param, q, p, C1, C2;
   int j_start, j_end, im1, ip1, l_m1_phi, l_p1_phi, l_m1_r, l_p1_r;
-  double mu_avg, mu_std, mu_frac;
-  double opac, tau_m, opacR;
-  double max_mu = 1.0e-2;
+  double opac, opacR;
   opac = opacity->Planck;
   opacR = opacity->Rosseland;
-  point s[4], midpoint;
+  point s0, s1, s2, s3, midpoint;
   vector v1, v2, normal, d0, vert;
   
   vert.x = 0.0; vert.y=0.0; vert.z = 1.0;
-  dphi = Xmed(1)-Xmed(0);//LP->phipos[1]-LP->phipos[0];
-  
+  dphi = Xmed(1)-Xmed(0);
+  //opacity constants
   sca_frac = opacity->sca_frac;
   abs_frac = opacity->abs_frac;
   g_param = opacity->g_param;
@@ -38,13 +37,25 @@ void surface_range(struct disk_parameters *DP,
   
   j_start = 1; 
   j_end   = size_y-1;
-  double mu1, mu2,r_perc;
-  int nmu1, nmu2;
-  mu1 = mu2 = 0.0;
-  nmu1=nmu2=0;
-  
-  for(i=0;i<size_x;i++){
-    mu_avg = 0.0;
+  real r_perc;
+  //define range for which surface values need to be
+  //calculated for this particular cpu
+  i_shift = CPU_Rank*NX/CPU_Number;
+  if(CPU_Number>1) irange = NX/CPU_Number+NX/NXRADSURF+NX/16;
+  if(CPU_Number>1){
+    i_shift = CPU_Rank*NX/CPU_Number;
+    imin=i_shift-NX/NXRADSURF-NX/12;
+    imax=i_shift+NX/CPU_Number+NX/NXRADSURF+NX/12;
+  }
+  else{
+    imin=i_shift-NX/2; 
+    imax=i_shift+NX/2; 
+  } 
+
+  for(ii=imin;ii<imax;ii++){
+    i = (ii+NX)%NX;
+    im1 = (i-1+Nx)%Nx;
+    ip1 = (i+1+Nx)%Nx;
     for(j=j_start;j<j_end;j++){
       r = rpos[j]*5.2;
       dr = (rpos[j+1]-rpos[j])*5.2;
@@ -57,18 +68,19 @@ void surface_range(struct disk_parameters *DP,
       l_m1_r = l-Nx;
       l_p1_r = l+Nx;
 
-      s[0] = cylin2cart(rpos[j+1]*5.2, Xmed(i), full_surf[l_p1_r], 0.0); 
-      s[1] = cylin2cart(r, Xmed(im1), full_surf[l_m1_phi], 0.0);
-      s[2] = cylin2cart(rpos[j-1]*5.2, Xmed(i), full_surf[l_m1_r], 0.0); 
-      s[3] = cylin2cart(r, Xmed(ip1), full_surf[l_p1_phi], 0.0);
-      v1 = crossproduct(vectorbtwnpts(s[1],s[3]),vectorbtwnpts(s[0],s[2]));
+      //use surrounding surface points to calculate the normal vector
+      s0 = cylin2cart(rpos[j+1]*5.2, Xmed(i), full_surf[l_p1_r], 0.0); 
+      s1 = cylin2cart(r, Xmed(im1), full_surf[l_m1_phi], 0.0);
+      s2 = cylin2cart(rpos[j-1]*5.2, Xmed(i), full_surf[l_m1_r], 0.0); 
+      s3 = cylin2cart(r, Xmed(ip1), full_surf[l_p1_phi], 0.0);
+      v1 = crossproduct(vectorbtwnpts(s1,s3),vectorbtwnpts(s0,s2));
       mag = sqrt(v1.x*v1.x + v1.y*v1.y + v1.z*v1.z);
-      VS->normx[l] = v1.x/mag;
-      VS->normy[l] = v1.y/mag;
-      VS->normz[l] = v1.z/mag;
-      normal.x = VS->normx[l];
-      normal.y = VS->normy[l];
-      normal.z = VS->normz[l];
+      normal.x = v1.x/mag;
+      normal.y = v1.y/mag;
+      normal.z = v1.z/mag;
+      VS->normx[l] = normal.x;
+      VS->normy[l] = normal.y;
+      VS->normz[l] = normal.z;
       
       midpoint = cylin2cart(r, Xmed(i), full_surf[l], 0.0); //LP->phipos[i]
       VS->midx[l] = midpoint.x;
@@ -76,97 +88,32 @@ void surface_range(struct disk_parameters *DP,
       VS->midz[l] = midpoint.z;
       
       d0 = vectorbtwnpts(midpoint,pointat(0.0,0.0,0.0));
-      VS->d0_starx[l] = d0.x;
-      VS->d0_stary[l] = d0.y;
-      VS->d0_stary[l] = d0.z;
 
-      d = sqrt(r*r+z*z);
-      mu = cosangle(normal,d0);// +min_incident_angle(d,DP->R_star);
-      if(r_perc<0.02){
-        mu1 += mu;
-        nmu1 += 1;
-      } 
-      if(r_perc>0.04 && r_perc<0.06){
-        mu2 += mu;
-        nmu2 += 1;
-      } 
+      d = sqrt(r*r+z*z); //distance from star
+      mu = cosangle(normal,d0) +min_incident_angle(d,DP->R_star); //incident angle
+
       //damp mu towards the inner edge
-      mu = 4.0e-2*exp(-(r_perc+0.01)*20) + cosangle(normal,d0)*(1.0-exp(-(r_perc+0.01)*20));// +min_incident_angle(d,DP->R_star);
+      //mu = 4.0e-2*exp(-(r_perc+0.01)*20) + cosangle(normal,d0)*(1.0-exp(-(r_perc+0.01)*20)) +min_incident_angle(d,DP->R_star);
 
       if(mu<0.0) mu=0.0;
       VS->mu[l] = mu;
-      mu_avg += mu;
-      
-      VS->F_irr[l] = F_incident(DP->T_star,DP->R_star,d)
-                  *abs_frac/4.0/M_PI; 
-                  
+      //incoming flux from star light at each surface cell
+      VS->F_irr[l] = F_incident(DP->T_star,DP->R_star,d)*abs_frac/4.0/M_PI;               
+      //surface cell size projected onto midplane
       VS->omeg[l] = dphi/2.0*((r+dr/2.0)*(r+dr/2.0)-(r-dr/2.0)*(r-dr/2.0))
-                /cosangle(normal,vert); //HSL. this can actually be reduced to a purely radial array
+                /cosangle(normal,vert); //could be reduced to purely radial array
                 
+      //intensity constants from semi-infinite slab derivation
       C1 = -3.0*sca_frac*mu*mu
            /(1-g_param*g_param*mu*mu);
       C2 = sca_frac*(2.0+3.0*mu)/(g_param*(1.0+2.0*g_param/3.0)
 	      * (1-g_param*g_param*mu*mu) );
-  
-      //the original semi-infinite slab derivation
       VS->c1p[l] = (1.0+C1)*(2.0+3.0*mu/q)+ C2*(2.0+3.0/g_param/q);
       VS->c2p[l] = (1.0+C1)/mu*(q/p-3.0*mu*mu/q);
       VS->c3p[l] = C2*g_param*(q/p-3.0/(q*g_param*g_param));
 
       if(VS->c2p[l]<0.0) VS->c2p[l]=0.0;
       if(VS->c3p[l]<0.0) VS->c3p[l]=0.0;
-      /*if(VS->c1p[l]<0.0 || VS->c2p[l]<0.0){
-        if(C1<-1.0){
-          VS->c1p[l] = 0.0;
-          VS->c2p[l] = 0.0;
-        }
-        else if(C2<0.0){
-          mu = 0.95/g_param;
-          C2 = sca_frac*(2.0+3.0*mu)/(g_param*(1.0+2.0*g_param/3.0)
-	             * (1-g_param*g_param*mu*mu) );
-          VS->c1p[l] = (1.0+C1)*(2.0+3.0*mu/q)+ C2*(2.0+3.0/g_param/q);
-          VS->c3p[l] = C2*g_param*(q/p-3.0/(q*g_param*g_param));
-        } 
-        else if(q/p<3.0*mu*mu/q){
-          VS->c2p[l] = 0.0;
-        }
-      }
-      if(VS->c3p[l]<0.0){
-        if(C2<0.0){
-          mu = 0.95/g_param;
-          C2 = sca_frac*(2.0+3.0*mu)/(g_param*(1.0+2.0*g_param/3.0)
-	             * (1-g_param*g_param*mu*mu) );
-          VS->c1p[l] = (1.0+C1)*(2.0+3.0*mu/q)+ C2*(2.0+3.0/g_param/q);
-          VS->c3p[l] = C2*g_param*(q/p-3.0/(q*g_param*g_param));
-        } 
-      }*/
-
-
-      if(VS->c1p[l]<0.0 || VS->c2p[l]<0.0 || VS->c3p[l]<0.0){
-        printf("ERROR!!! flux constants are negative at (%d,%d)\n",i,j);
-        printf(" Opacities may need to be recalculated or the surface is bad\n\n");
-        if(VS->c1p[l]<0.0){
-          printf("c1p = %.2E = %.2E+%.2E : C1=%.3E mu=%.3E q(ratio)=%.3E C2=%.3E g_param=%.3E\n",
-                VS->c1p[l],(1.0+C1)*(2.0+3.0*mu/q),C2*(2.0+3.0/g_param/q),C1,mu,q,C2,g_param);
-          printf("check that C1>-1, Everything else >0\n ");
-          printf("(g=sqrt(3*ABSFRACNUM/PLANCK)  q=ratio=PLANCK/ROSSELAND\n");
-          if(mu>0.5) printf("mu is pretty big:  surf-1=%f surf+1=%f\n",s[2].z,s[0].z);
-        }
-        if(VS->c2p[l]<0.0){
-          printf("c2p = %.2E = %.2E*%.2E: C1=%E mu=%.3E q(ratio)=%.3E p(ratio_p)=%.3E sca_frac=%.3E g=%.3E\n",
-                 VS->c2p[l],(1.0+C1)/mu,(q/p-3.0*mu*mu/q),C1,mu,q,p,sca_frac,g_param);
-          printf("check that C1>-1 & q^2/p>3*mu^2\n");
-          printf("(q=ratio=PLANCK/ROSSELAND  p=ratio_p=RATIOPNUM/ROSSELAND)\n");
-          if(mu>0.5) printf("mu is pretty big:  surf-1=%f surf+1=%f\n",s[2].z,s[0].z);
-        }
-        if(VS->c3p[l]<0.0){
-          printf("c3p=%.2E: C2=%.3E  mu=%.3E g_param=%.3E  q=%.3E  p=%.3E \n",VS->c1p[l],C2,mu,g_param,q,p);
-          printf("check that C2>0, g>0, & q^2/p (%.2E) > 3/g^2 (%.2E)\n",q*q/p,3/g_param/g_param);
-          printf("(g=sqrt(3*ABSFRACNUM/PLANCK)  q=ratio=PLANCK/ROSSELAND  p=ratiop=RATIOPNUM/ROSSELAND)\n");
-          if(mu>0.5) printf("mu is pretty big:  surf-1=%f surf+1=%f\n",s[2].z,s[0].z);
-        }
-        exit(0);
-      }
     }
     //fill in the edges of the radial domain
     VS->mu[i] = VS->mu[i+NX];  VS->mu[i+(size_y-1)*NX] = VS->mu[i+(size_y-2)*NX];
@@ -185,14 +132,12 @@ void surface_range(struct disk_parameters *DP,
   for(i=0;i<size_x;i++){
     for(j=0;j<j_end+1;j+=j_end){
       r = rpos[j]*5.2;
-
       midpoint = cylin2cart(r, Xmed(i), full_surf[l], 0.0); //LP->phipos[i]
       VS->midx[l] = midpoint.x;
       VS->midy[l] = midpoint.y;
       VS->midz[l] = midpoint.z;
     }   
   }
-  
 }
 
 void fix_ghost_cells()
@@ -200,7 +145,6 @@ void fix_ghost_cells()
   int i,j,k,ii,lpx,lmx,count;
   real *rho[NFLUIDS];
   int size_y = Ny+2*NGHY;
-  int jmin,jmax,imin,imax;
 
   for (ii=0; ii<NFLUIDS; ii++){
     INPUT(Fluids[ii]->Density);
@@ -209,25 +153,6 @@ void fix_ghost_cells()
   
   i=j=k=0;
   count=0;
-  
-  jmin=Ny;
-  jmax=0;
-  imin = Nx;
-  imax = 0;
-  //if(CPU_Rank==1){
-    for(j=0; j<size_y; j++) {
-      for(i=0; i<Nx; i++) {
-        if(rho[1][l]<0.0){
-          //if(j<jmin) jmin=j;
-          //if(j>jmax) jmax=j;
-          //if(i<imin) imin=i;
-          //if(i>imax) imax=i;   
-          printf("negative dens %d,%d,%d:%.1E ",CPU_Rank,i,j,rho[1][l]);     
-        }
-      }
-    //} 
-
-  }
   
   for(j=size_y/2; j<size_y; j++) {
     for(i=0; i<Nx; i++) {
@@ -316,9 +241,6 @@ struct var_struct new_var_struct(){
   vs.midz = (double *)calloc(size_x*full_size_y,sizeof(double));
   vs.F_irr = (double *)calloc(size_x*full_size_y,sizeof(double));
   vs.omeg = (double *)calloc(size_x*full_size_y,sizeof(double));
-  vs.d0_starx = (double *)calloc(size_x*full_size_y,sizeof(double)); 
-  vs.d0_stary = (double *)calloc(size_x*full_size_y,sizeof(double));
-  vs.d0_starz = (double *)calloc(size_x*full_size_y,sizeof(double)); 
   vs.c1p = (double *)calloc(size_x*full_size_y,sizeof(double));
   vs.c2p = (double *)calloc(size_x*full_size_y,sizeof(double)); 
   vs.c3p = (double *)calloc(size_x*full_size_y,sizeof(double));
@@ -336,9 +258,6 @@ void freeVS(struct var_struct *VS){
   free(VS->midz);
   free(VS->F_irr);
   free(VS->omeg);
-  free(VS->d0_starx);
-  free(VS->d0_stary);
-  free(VS->d0_starz);
   free(VS->c1p);
   free(VS->c2p);
   free(VS->c3p);
@@ -495,17 +414,13 @@ void update_temp_height_azi(double *full_flux,
       cs[l] = pow((GAMMA-1.0)*(e_i)/rho[0][l],0.5);
       //} 
       if(d_e<0.0 && cs[l]<cs_limit){
-        //printf("(%d,%d) cs=%.3E -> %.3E (%.3E)\n",i,j,cs[l],cs_min,cs_min/sqrt(G/G_CGS*MSTAR/MSTAR_CGS/R0*R0_CGS));
         cs[l] = cs_limit;
       } 
       else if(d_e>0.0 && cs[l]>cs_limit){
-        //printf("(%d,%d) cs=%.3E -> %.3E (%.3E)\n",i,j,cs[l],cs_min,cs_min/sqrt(G/G_CGS*MSTAR/MSTAR_CGS/R0*R0_CGS));
         cs[l] = cs_limit;
       } 
       if(cs[l]<cs_10K) cs[l]=cs_10K;
 #endif
-      //if(CPU_Rank==0 && i==0 && j==0) printf(" *in rad equilib* ");
-      //if(PhysicalTime<2.0) cs[l] = cs_limit;
 
       r = Ymed(j);
       omega = sqrt(G*MSTAR*MSTARRAD/(r*r*r));
@@ -515,9 +430,8 @@ void update_temp_height_azi(double *full_flux,
       H[0][l] += (H_eq-H[0][l]) * dt * omega;  
 
 #ifdef ADIABATIC
-      energy_dens[1][l] = 0.0; //cs[l]*cs[l]*rho[1][l]/(GAMMA-1.0);
-      energy_dens[2][l] = 0.0; //cs[l]*cs[l]*rho[2][l]/(GAMMA-1.0);
-
+      energy_dens[1][l] = 0.0; 
+      energy_dens[2][l] = 0.0; 
       if(isnan(energy_dens[0][l]) || isinf(energy_dens[0][l]) || energy_dens[0][l]<=0.0){
         printf("(%d,%d,%d): cs=%.3E e=%.3E f=%.3E rho=%.3E thick=%.2E heat=%.3E  \n  d_e=%.2E  cs_lim=%.3E T_lim=%.3E Temp=%.2E\n",
         CPU_Rank,i,j, cs[l],energy_dens[0][l],flux_in/energy_convert,rho[0][l],thick,heating,
@@ -560,29 +474,14 @@ void thermal_relaxation(real dt)
     rho[ii] = Fluids[ii]->Density->field_cpu;
   }
 
-  double azi_shadow = 1.0;
-#ifdef AZISHADOW
-  real phi;
-  double shade_angle = M_PI/15;
-  double shaded = 0.3;
-#endif
-
-  //simple thermal relaxation
   for(j=0; j<size_y; j++) {
     r     = Ymed(j);
     omega = sqrt(G*MSTAR/r/r/r);
     cs0 = ASPECTRATIO*pow(r/R0,FLARINGINDEX)*omega*r;
     //rho0  = SIGMA0*pow(r/R0,-SIGMASLOPE);
     for(i=XIM; i<size_x; i++) {
-#ifdef AZISHADOW
-      azi_shadow = 1.0;
-      phi = Xmed(i);
-      if(fabs(M_PI/2-fabs(phi))>M_PI/2.0-shade_angle) azi_shadow = shaded;
-#endif
-      e0 = cs0*cs0*rho[0][l]/(GAMMA-1.0)*azi_shadow;
-      d_e = (energy_dens[0][l]-e0)*omega/(beta*sqrt(YMAX/r)) * dt;
-      if(fabs(d_e)>fabs((energy_dens[0][l]-e0))) d_e = (energy_dens[0][l]-e0);
-      energy_dens[0][l] -= d_e;
+      e0 = cs0*cs0*rho[0][l]/(GAMMA-1.0);
+      energy_dens[0][l] -= (energy_dens[0][l]-e0)*omega/beta * dt;
       //energy_dens[0][l] = e0;
     }
   }
@@ -641,6 +540,8 @@ void _radtransfer_azi_cpu(real dt){
     }
   }
 
+  //communication of first row of ghost cells from
+  //radmc gives an error for the densities. fix this first.
   fix_ghost_cells();
 
   opacity = new_disk_opacity(opac_i);
@@ -697,20 +598,14 @@ void _radtransfer_azi_cpu(real dt){
   H_azi = (double *)malloc((domain_size)*sizeof(double));
   double *surf_azi;
   surf_azi = (double *)malloc((domain_size)*sizeof(double));
-  float *sub_cs;
-  sub_cs = (float *)malloc((block_size)*sizeof(float));
-  float *cs_azi;
-  cs_azi = (float *)malloc((domain_size)*sizeof(float));
 
-  double *flux_radial;
-  flux_radial =  (double *)calloc(Nx*(Ny+2*NGHY), sizeof(double));
-
+  //double *flux_radial;  //only needed if running viscous flux first
+  //flux_radial =  (double *)calloc(Nx*(Ny+2*NGHY), sizeof(double));
+  //double *sub_flux;
+  //sub_flux =  (double *)calloc(block_size, sizeof(double));
   double *flux_azi;
   flux_azi = (double *)malloc((domain_size)*sizeof(double));
-  double *sub_flux;
-  sub_flux =  (double *)calloc(block_size, sizeof(double));
   
-
   int nc,nx,ny,ng;
   if(CPU_Rank==0) ng=0;
   else ng=NGHY;
@@ -719,36 +614,23 @@ void _radtransfer_azi_cpu(real dt){
       for(ny=0;ny<block_size/Nx2; ny++){
         sub_dens2[nx+ny*Nx2] = rho[opac_i][nx+nc*Nx2+(ny+ng)*Nx];
         sub_H2[nx+ny*Nx2] = H[0][nx+nc*Nx2+(ny+ng)*Nx];
-        sub_flux[nx+ny*Nx2] = flux_radial[nx+nc*Nx2+(ny+ng)*Nx];
-#ifdef ISOTHERMAL
-        sub_cs[nx+ny*Nx2] = e[0][nx+nc*Nx2+(ny+ng)*Nx];
-#endif
-#ifdef ADIABATIC
-        sub_cs[nx+ny*Nx2] = sqrt((GAMMA-1.0)*e[0][nx+nc*Nx2+(ny+ng)*Nx]/rho[0][nx+nc*Nx2+(ny+ng)*Nx]);
-#endif
-        if(sub_dens2[nx+ny*Nx2]<0.0){
-          printf("-");
-          sub_dens2[nx+ny*Nx2]=sub_dens2[nx+ny*Nx2-1];
-        }
+        //sub_flux[nx+ny*Nx2] = flux_radial[nx+nc*Nx2+(ny+ng)*Nx];
       }
     }
     MPI_Gatherv(sub_dens2, block_size, MPI_DOUBLE, dens_azi, recvcounts2,
             displs2, MPI_DOUBLE, nc, MPI_COMM_WORLD); 
     MPI_Gatherv(sub_H2, block_size, MPI_DOUBLE, H_azi, recvcounts2,
             displs2, MPI_DOUBLE, nc, MPI_COMM_WORLD);
-    MPI_Gatherv(sub_cs, block_size, MPI_FLOAT, cs_azi, recvcounts2,
-            displs2, MPI_FLOAT, nc, MPI_COMM_WORLD);
-    MPI_Gatherv(sub_flux, block_size, MPI_DOUBLE, flux_azi, recvcounts2,
-            displs2, MPI_DOUBLE, nc, MPI_COMM_WORLD);
+    //MPI_Gatherv(sub_flux, block_size, MPI_DOUBLE, flux_azi, recvcounts2,
+      //      displs2, MPI_DOUBLE, nc, MPI_COMM_WORLD);
   } 
 
   free(displs2);
   free(sub_H2);
   free(recvcounts2);
   free(sub_dens2);
-  free(sub_cs);
-  free(sub_flux);
-  free(flux_radial);
+  //free(sub_flux);
+  //free(flux_radial);
 
   double *rpos;
   rpos = (double *)malloc(full_size_y*sizeof(double));
@@ -787,29 +669,23 @@ void _radtransfer_azi_cpu(real dt){
   full_dens2 = (double *)malloc((size_x*full_size_y)*sizeof(double));
   double *full_H2;
   full_H2 = (double *)malloc((size_x*full_size_y)*sizeof(double));
-  float *full_cs;
-  full_cs = (float *)malloc((size_x*full_size_y)*sizeof(float));
   
 
-    MPI_Gatherv(surf_azi, domain_size, MPI_DOUBLE, full_surf2, recvcounts3,
-                displs3,MPI_DOUBLE, 0, MPI_COMM_WORLD); 
-    MPI_Gatherv(dens_azi, domain_size, MPI_DOUBLE, full_dens2, recvcounts3,
-                displs3,MPI_DOUBLE, 0, MPI_COMM_WORLD); 
-    MPI_Gatherv(H_azi, domain_size, MPI_DOUBLE, full_H2, recvcounts3,
-                displs3,MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Gatherv(cs_azi, domain_size, MPI_FLOAT, full_cs, recvcounts3,
-                displs3,MPI_FLOAT, 0, MPI_COMM_WORLD);
+  MPI_Gatherv(surf_azi, domain_size, MPI_DOUBLE, full_surf2, recvcounts3,
+              displs3,MPI_DOUBLE, 0, MPI_COMM_WORLD); 
+  MPI_Gatherv(dens_azi, domain_size, MPI_DOUBLE, full_dens2, recvcounts3,
+              displs3,MPI_DOUBLE, 0, MPI_COMM_WORLD); 
+  MPI_Gatherv(H_azi, domain_size, MPI_DOUBLE, full_H2, recvcounts3,
+              displs3,MPI_DOUBLE, 0, MPI_COMM_WORLD);
     
 
   MPI_Bcast(full_surf2,size_x*full_size_y,MPI_DOUBLE,0,MPI_COMM_WORLD);
   MPI_Bcast(full_dens2,size_x*full_size_y,MPI_DOUBLE,0,MPI_COMM_WORLD);
   MPI_Bcast(full_H2,size_x*full_size_y,MPI_DOUBLE,0,MPI_COMM_WORLD);
-  MPI_Bcast(full_cs,size_x*full_size_y,MPI_FLOAT,0,MPI_COMM_WORLD);
 
   flip_full_array(full_surf2,Nx2,size_x,full_size_y);
   flip_full_array(full_H2,Nx2,size_x,full_size_y);
   flip_full_array(full_dens2,Nx2,size_x,full_size_y);
-  flip_full_array_float(full_cs,Nx2,size_x,full_size_y);
 
   int out_num;
   if(CPU_Rank==0 && print_extra==1){ 
@@ -841,7 +717,7 @@ void _radtransfer_azi_cpu(real dt){
   surface_range(&DP,&opacity,&VS,full_surf2,full_dens2,rpos);    
 
   //calculate the flux from stellar irradation and accretion heating
-  calc_flux_azi5(&DP,&opacity,&VS,full_dens2,full_H2,full_surf2,full_cs,
+  calc_flux_azi(&DP,&opacity,&VS,full_dens2,full_H2,full_surf2,
                  flux_azi,dens_azi,opac_i,rpos);
 
   //////////////////////////////////
@@ -879,8 +755,6 @@ void _radtransfer_azi_cpu(real dt){
   free(full_surf2);
   free(full_H2);
   free(full_dens2);
-  free(full_cs);
-  free(cs_azi);
   free(rpos);
 
   free(flux_azi);

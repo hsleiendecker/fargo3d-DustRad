@@ -1,0 +1,22 @@
+body {
+  background-color: linen;
+}
+h1 {
+  color: midnightblue;
+  font-size: 300%;
+}
+h3 {
+  color: midnightblue;
+  font-size: 160%;
+}
+h4 {
+  color: midnightblue;
+  font-size: 120%;
+}
+h5 {
+  color: midnightblue;
+  font-size: 110%;
+}
+p {
+  color: darkslategray;
+}

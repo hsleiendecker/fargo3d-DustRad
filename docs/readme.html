@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FARGO3D</title>
+</head>
+<body>
+  <main>
+    <h1>FARGO3D</h1>
+
+    <h4>A versatile MULTIFLUID HD/MHD code that runs on clusters of CPUs or GPUs, with special emphasis on protoplanetary disks.</h4>
+
+    <p>
+      <img src="https://bytebucket.org/fargo3d/public/raw/81b497fb327e916d1c2ad650fe1177b1bbbcc1de/utils/images/fargo3d.jpg" alt="example" />
+    </p>
+
+    <hr />
+
+    <h5>Website: <a href="http://fargo3d.in2p3.fr">fargo.in2p3.fr</a></h5>
+
+    <h5><a href="https://fargo3d.bitbucket.io/">Documentation</a></h5>
+
+    <hr />
+
+    <h5>Clone</h5>
+
+    <p><strong>HTTPS:</strong></p>
+    <pre><code>git clone https://bitbucket.org/fargo3d/public.git</code></pre>
+
+    <p><strong>SSH (bitbucket user required):</strong></p>
+    <pre><code>git clone git@bitbucket.org:fargo3d/public.git</code></pre>
+
+    <h5>Fork &amp; Sync:</h5>
+    <p>Follow the bitbucket documentation <a href="https://confluence.atlassian.com/bitbucket/forking-a-repository-221449527.html">here</a></p>
+
+    <h5>Working with different versions</h5>
+    <p>Version 2.0: Switch to the commit tagged as <code>2.0</code> to work with version 2.0.</p>
+    <pre><code>git checkout -b branch2.0 2.0</code></pre>
+
+    <p>Version 1.3: Switch to the commit tagged as <code>1.3</code> to work with version 1.3.</p>
+    <pre><code>git checkout -b branch1.3 1.3</code></pre>
+
+    <h5>Contributing to the code</h5>
+    <p><a href="https://www.atlassian.com/git/tutorials/making-a-pull-request">Pull requests</a> are available to the branch <code>release/public</code>.</p>
+    <p>Bugs can be reported to the <a href="https://bitbucket.org/fargo3d/public/issues">issues section</a> of the repository or to the <a href="https://groups.google.com/forum/#!forum/fargo3d">Google group</a>.</p>
+
+    <h3>First run</h3>
+
+    <h4>Sequential CPU</h4>
+    <pre><code>make SETUP=fargo PARALLEL=0 GPU=0
+./fargo3d in/fargo.par
+</code></pre>
+
+    <h4>Parallel CPU</h4>
+    <pre><code>make SETUP=fargo PARALLEL=1 GPU=0
+mpirun -np 4 ./fargo3d in/fargo.par
+</code></pre>
+
+    <h4>Sequential GPU</h4>
+    <pre><code>make SETUP=fargo PARALLEL=0 GPU=1
+./fargo3d in/fargo.par
+</code></pre>
+
+    <h4>Parallel GPU</h4>
+    <pre><code>make SETUP=fargo PARALLEL=1 GPU=1
+mpirun -np 2 ./fargo3d in/fargo.par
+</code></pre>
+
+    <hr />
+
+    <h3>Description of subdirectories:</h3>
+    <ul>
+      <li><strong>planets:</strong> library of planetary systems.</li>
+      <li><strong>scripts:</strong> python scripts needed to build the code.</li>
+      <li><strong>setups:</strong> this is where all the custom setup definition are stored. The name of the setups correspond to the names of the directories found in setups/</li>
+      <li><strong>src:</strong> this is where all the source files of the code are found. Some of them may be redefined in the setups/ subdirectory (the makefile uses the VPATH variable, which behaves much like the PATH variable of the shell, as it allows to decide in which order a given source file is sought within different directories).</li>
+      <li><strong>std:</strong> this is where all the files that contain some standard definitions (everything that is not a source file, not a script, and that the user is not supposed to modify). This includes, for instance, the definition of the some standard boundary conditions, the units (scaling rules) of the code parameters, etc.</li>
+      <li><strong>test_suite:</strong> contains python scripts that are used to test various features of the code. They are invoked as follows. We take the example of the permut.py script (which tests that the output of the Orszag-Tang vortex is independent of the choice of coordinates, XY, YZ or XZ). In the main directory (parent directory of test_suite/), simply issue: <code>make testpermut</code> The rule is therefore simply to issue: <code>make test[name of python script without extension]</code> for any script found in this subdirectory. All these scripts should use the 'test' python module found in scripts/</li>
+      <li><strong>utils:</strong> contains some utilities to post-process the data.</li>
+    </ul>
+  </main>
+</body>
+</html>

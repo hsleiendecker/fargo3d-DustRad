@@ -370,24 +370,25 @@ void calc_surf_twotemp(struct disk_parameters *DP, struct disk_opacity *opacity,
       sigma2*=reduction;
 
       for(i2=ii;i2<nray;i2++){  
-        dl = dr/cos(theta_arr[i2]);
-        z = (r-dr)*tan(theta_arr[i2]);
+        theta = theta_arr[i2];
+        dl = dr/cos(theta);
+        z = (r-dr)*tan(theta);
         //tau is calc'd with log interpolation of density between points
         if(z<zph1){
-          rho1 =  (sigma1/(2.507*H1))
-                 *exp(-pow(z/(1.414*H1),2.0)); 
+          //solving for log(density) since we use a log interpolation
+          rho1 =  log((sigma1/(2.507*H1)))
+                 -pow(z/(1.414*H1),2.0); 
         }
-        else rho1 = rhoph1*exp(-pow(z/(1.414*Hph1),2.0));
-        z = r*tan(theta_arr[i2]);
+        else rho1 = log(rhoph1)-pow(z/(1.414*Hph1),2.0);
+        z = r*tan(theta);
         if(z<zph2){
-          rho2 = (sigma2/(2.507*H2))
-                  *exp(-pow(z/(1.414*H2),2.0));
+           //solving for log(density) since we use a log interpolation
+          rho2 = log(sigma2/(2.507*H2))
+                  -pow(z/(1.414*H2),2.0);
         }
-        else rho2 = rhoph2*exp(-pow(z/(1.414*Hph2),2.0));
-        rho2o  = (dens_azi[la]/(2.507*H2))
-                  *exp(-pow(z/(1.414*H2),2.0));
+        else rho2 = log(rhoph2)-pow(z/(1.414*Hph2),2.0);
 
-        tau_arr[i2]+=opac*exp(0.5*log(rho1)+0.5*log(rho2))*dl;
+        tau_arr[i2]+=opac*exp((rho1+rho2)/2.0)*dl;
       }
       while(tau_arr[ii+1] > surf_depth){
         ii++; //once the next lowest ray is >2/3, we don't need the lowest

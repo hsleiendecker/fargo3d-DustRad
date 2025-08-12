@@ -34,6 +34,9 @@ a {
     display: block;
     margin: 10px;
 }
+.inline-block {
+    display: inline;
+}
 .w3-sidebar {
     position: fixed;
     top: 0;
@@ -45,7 +48,7 @@ a {
     padding: 1rem;
 }
 .w3-sidebar a {
-    font-size: 140%;
+    font-size: 120%;
     color: midnightblue;
 }
 

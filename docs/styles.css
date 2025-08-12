@@ -20,3 +20,6 @@ h5 {
 p {
   color: darkslategray;
 }
+.inline-block {
+    display: inline-block;
+}

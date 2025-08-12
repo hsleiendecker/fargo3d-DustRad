@@ -30,3 +30,12 @@ span {
     margin: 10px;
     color: darkslategray;
 }
+a {
+    display: block;
+    margin: 10px;
+}
+.w3-sidebar a {
+    font-size: 140%;
+    color: midnightblue;
+}
+

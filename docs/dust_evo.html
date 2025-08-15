@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <title>Dust Evolution</title>
     <link rel="stylesheet" href="styles.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
 </head>
 <body>
     <div class="w3-sidebar w3-bar-block" style="width:18%">
@@ -23,13 +24,33 @@
 
     <div class="main-page">
         <h1>Two Population Dust Evolution</h1>
-        <h3></h3>
+
+        <h3>Intro</h3>
+
         <p>The dust evolution is based on the two population dust method from<a 
             href="https://ui.adsabs.harvard.edu/abs/2012A%26A...539A.148B/abstract"
             class="inline-block">Til Birnstiel's two-pop-py</a>. The full dust
             grain size distribution is represented as just fine and coarse
             grains. The fine grains have a constant and uniform size, while the
             coarse grains are able to grow and evolve according to local conditions.</p>
+
+        <h3>Physical Size Limits</h3>
+
+        <p>The coarse grains have three potential conditions for their maximum
+            size:</p>   
+        <ul>
+          <li><strong>the drift limit</strong></li>
+          <li><strong>the fragmentation limit</strong></li>
+          <li><strong>the drift-induced fragmentation limit</strong></li>
+        </ul>
+        <p>If the radial drift of coarse grains occurs on a similar or shorter
+            timescale than the grains can grow and replenish, then the drift
+            size limit can be solved as
+        </p> 
+        $$x = {-b \pm \sqrt{b^2-4ac} \over 2a}.$$
+        $$a_{\rm{ drift}} = f_d \frac{2 \Sigma_{d} v_{K}}{\pi \rho_s c_{s}^2} \gamma^{-1}.$$
+        
+
     </div>
    
 </body>

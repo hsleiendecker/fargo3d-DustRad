@@ -41,9 +41,6 @@ a {
     margin: 10px;
     max-width: 480px;
 }
-.inline-block {
-    display: inline;
-}
 .w3-sidebar {
     position: fixed;
     top: 0;

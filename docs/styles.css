@@ -5,41 +5,41 @@ h1 {
   color: midnightblue;
   margin: 10px;
   font-size: 300%;
-  max-width: 600px;
+  max-width: 480px;
 }
 h3 {
   color: midnightblue;
   margin: 10px;
   font-size: 160%;
-  max-width: 600px;
+  max-width: 480px;
 }
 h4 {
   color: midnightblue;
   margin: 10px;
   font-size: 120%;
-  max-width: 600px;
+  max-width: 480px;
 }
 h5 {
   color: midnightblue;
   margin: 10px;
   font-size: 110%;
-  max-width: 600px;
+  max-width: 480px;
 }
 p {
   color: darkslategray;
   margin: 10px;
-  max-width: 600px;
+  max-width: 480px;
 }
 span {
     display: block;
     margin: 10px;
     color: darkslategray;
-    max-width: 600px;
+    max-width: 480px;
 }
 a {
     display: block;
     margin: 10px;
-    max-width: 600px;
+    max-width: 480px;
 }
 .inline-block {
     display: inline;

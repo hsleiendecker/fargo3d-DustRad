@@ -4,15 +4,26 @@
     <meta charset="UTF-8" />
     <title>FARGO3D-DustRad Documentation</title>
     <link rel="stylesheet" href="styles.css">
-
-    <script src="sidebar.js"></script>
     <script>
-        $(document).ready(function(){
-            loadNavDiv();
-        });
+      document.addEventListener("DOMContentLoaded", () => {
+        fetch("sidebar.html")
+          .then(response => {
+            if (!response.ok) {
+              throw new Error("Sidebar fetch failed: " + response.statusText);
+            }
+            return response.text();
+          })
+          .then(html => {
+            document.getElementById("sidebar").innerHTML = html;
+          })
+          .catch(err => {
+            console.error("Error loading sidebar:", err);
+          });
+      });
     </script>
 </head>
 <body>
+    <div id="sidebar"></div>
 
     <div class="main-page">
         <h1>FARGO3D-DustRad Documentation</h1>

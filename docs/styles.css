@@ -31,13 +31,11 @@ p {
   max-width: 880px;
 }
 span {
-    display: block;
     margin: 10px;
     color: darkslategray;
     max-width: 880px;
 }
 a {
-    display: block;
     margin: 10px;
     max-width: 880px;
 }
@@ -49,6 +47,8 @@ a {
 }
 .main-page {
     margin-left: 18%; /* same as sidebar width */
+    margin-right: 18%; 
+    max-width: 1000px;
     padding: 1rem;
 }
 .w3-sidebar a {

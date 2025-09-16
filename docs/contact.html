@@ -4,11 +4,32 @@
     <meta charset="UTF-8" />
     <title>title</title>
     <link rel="stylesheet" href="styles.css">
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        fetch("sidebar.html")
+          .then(response => {
+            if (!response.ok) {
+              throw new Error("Sidebar fetch failed: " + response.statusText);
+            }
+            return response.text();
+          })
+          .then(html => {
+            document.getElementById("sidebar").innerHTML = html;
+          })
+          .catch(err => {
+            console.error("Error loading sidebar:", err);
+          });
+      });
+    </script>
 </head>
 <body>
-    <h1>Contact Info</h1>
-    <p>Harrison Leiendecker</p>
-    <p>hleiende@uwyo.edu</p>
-    <p>h.s.leiendecker@gmail.com</p>
+    <div id="sidebar"></div>
+
+    <div class="main-page">
+        <h1>Contact Info</h1>
+        <p>Harrison Leiendecker</p>
+        <p>hleiende@uwyo.edu</p>
+        <p>h.s.leiendecker@gmail.com</p>
+    </div>
 </body>
 </html>

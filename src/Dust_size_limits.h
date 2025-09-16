@@ -1,7 +1,7 @@
 /* 
 
 new file by HSL
-trying to update the alpha values (inv stokes number) based on 2pop
+update the alpha values (inv stokes number) based on 2pop
 
 */
 

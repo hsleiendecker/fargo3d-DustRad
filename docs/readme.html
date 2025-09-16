@@ -5,9 +5,28 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FARGO3D</title>
   <link rel="stylesheet" href="styles.css">
+  <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        fetch("sidebar.html")
+          .then(response => {
+            if (!response.ok) {
+              throw new Error("Sidebar fetch failed: " + response.statusText);
+            }
+            return response.text();
+          })
+          .then(html => {
+            document.getElementById("sidebar").innerHTML = html;
+          })
+          .catch(err => {
+            console.error("Error loading sidebar:", err);
+          });
+      });
+    </script>
 </head>
 <body>
-  <main>
+  <div id="sidebar"></div>
+
+  <div class="main-page">
     <h1>FARGO3D</h1>
 
     <h4>A versatile MULTIFLUID HD/MHD code that runs on clusters of CPUs or GPUs, with special emphasis on protoplanetary disks.</h4>
@@ -80,6 +99,6 @@ mpirun -np 2 ./fargo3d in/fargo.par
       <li><strong>test_suite:</strong> contains python scripts that are used to test various features of the code. They are invoked as follows. We take the example of the permut.py script (which tests that the output of the Orszag-Tang vortex is independent of the choice of coordinates, XY, YZ or XZ). In the main directory (parent directory of test_suite/), simply issue: <code>make testpermut</code> The rule is therefore simply to issue: <code>make test[name of python script without extension]</code> for any script found in this subdirectory. All these scripts should use the 'test' python module found in scripts/</li>
       <li><strong>utils:</strong> contains some utilities to post-process the data.</li>
     </ul>
-  </main>
+  </div>
 </body>
 </html>

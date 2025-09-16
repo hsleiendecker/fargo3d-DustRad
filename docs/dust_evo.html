@@ -43,16 +43,84 @@
         <p>The coarse grains have four potential conditions for their maximum
             size:</p>   
         <ul>
-          <li><strong>The growth limit</strong></li>
-          <li><strong>The drift limit</strong></li>
-          <li><strong>The fragmentation limit</strong></li>
-          <li><strong>The drift-induced fragmentation limit</strong></li>
+          <li><strong>The growth limit - \(a_{\rm{growth}}\)</strong></li>
+          <li><strong>The drift limit - \(a_{\rm{drift}}\)</strong></li>
+          <li><strong>The fragmentation limit - \(a_{\rm{frag}}\)</strong></li>
+          <li><strong>The drift-induced fragmentation limit - \(a_{\rm{df}}\)</strong></li>
         </ul>
+        <p>The size of the large grains are first limited by their growth rate.
+           The grains grow exponentially and their size can be expressed as
+        </p>
+        $$a_{\rm{growth}} = a_0 \cdot \exp{\frac{t}{\tau_{\rm{growth}}}}, \;
+          \tau_{\rm{growth}}=\frac{a}{\dot{a}} \simeq \frac{1}{\Omega_K (\Sigma_d/\Sigma_g)} $$
+
         <p>If the radial drift of coarse grains occurs on a similar or shorter
             timescale than the grains can grow and replenish, then the drift
             size limit can be solved as
         </p> 
-        $$a_{\rm{ drift}} = f_d \frac{2 \Sigma_{d} v_{K}}{\pi \rho_s c_{s}^2} \gamma^{-1}.$$
+        $$a_{\rm{ drift}} = f_d \frac{2 \Sigma_{d} V_{K}^2}{\pi \rho_s c_{s}^2} \gamma^{-1}.$$
+
+        <p>The maximum grain size may also be limited by the fragmentation of dust grains due 
+            turbulent motion. In this case, the representative size may be stated as
+        </p> 
+        $$a_{\rm{ frag}} = f_f \frac{2 \Sigma_{g} u_{f}^2}{3 \pi \rho_s \alpha_t c_{s}^2}.$$
+
+        <p>Finally, the relative drift rate of similar sized grains may exceed the
+            fragmentation velocity of the grains, which sets the drift-induced
+            fragmentation limit to be
+        </p> 
+        $$a_{\rm{ df}} = \frac{2 u_f V_K}{\gamma c_s^2}.$$
+
+        <h3>Setup</h3>
+        <h4>The .opt file</h4>
+        <p>The Multifluid package for FARGO3D allows users to add any number of 
+            dust species as pressureless fluids. To utilize the two-population 
+            method, users must specify <strong>three</strong> total fluids in the <code>.opt</code>
+            file: <strong>the gas and two dust fluids.</strong> The <code>.opt</code> file should
+            therefore have the following block:
+            <ul>
+            <pre><code>FLUIDS := 0 1 2</code></pre>
+            <pre><code>NFLUIDS = 3</code></pre>
+            <pre><code>FARGO_OPT += -DNFLUIDS=${NFLUIDS}</code></pre>
+            </ul>
+        </p>
+        <p>FARGO3D can treat the disk viscosity using either a constant kinematic
+            viscosity, \( \nu \), or a constant alpha viscosity, \( \alpha_t\),
+            as defined by the Shakura-Sunyaev (1973) viscosity prescription. 
+            Our dust size limits depend on \( \alpha_t\). Therefore, the
+            following line should be included: 
+            <pre><code>FARGO_OPT += -DALPHAVISCOSITY</code></pre>
+        </p>
+        <p>The following additions to the <code>.opt</code> file will include
+            the calculation for the maximum grain size of the large population
+            and the transfer of mass between the populations, respectively.
+            <ul>
+            <pre><code>FARGO_OPT += -DSTOKES2POP</code></pre>
+            <pre><code>FARGO_OPT += -DDUSTMASSTRANSFER</code></pre>
+            </ul>
+        </p>
+
+        <h4>The .par file</h4>
+        <p>Additional parameters for the dust evolution can be specified in the 
+            <code>.par</code> file. All dust parameters are expressed using
+            cgs units. The dust parameters are as follows:
+            <ul>
+            <li><code>RHO_S</code>: The material volume density of the dust</li>
+            <li><code>Dust_a1</code>: Grain size of the small grain population (fixed)</li>
+            <li><code>Dust_a2</code>: Initial grain size of the large grain population</li>
+            <li><code>Vfrag</code>: fragmentation velocity of grains</li>
+            </ul>
+        </p>
+
+        <h3>Implementation</h3>
+        <p>Particle sizes are updated in the <code>Collisions()</code>
+           function in <strong>collisions.c</strong> prior to the update to the 
+           dusts' velocities. The calculation of the grain sizes (and the 
+           corresponding Stokes numbers) for each 2D grid cell occurs in 
+           <strong>Dust_grain_sizes.h</strong>. Mass transfer between the
+           two dust species due to fragmentation of large grains and 
+           sweep-up of small grains is calculated in 
+           <strong>Dust_mass_transfer.h</strong></p>
         
 
     </div>

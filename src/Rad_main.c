@@ -201,8 +201,8 @@ struct disk_opacity new_disk_opacity(int opac_i)
 {
   struct disk_opacity opacity;
   //small dust, DSHARP (fig 8 w/ max size 32 micron)
-  opacity.Rosseland = ROSSELAND*MSTAR_CGS/MSTAR*R0*R0/R0_CGS/R0_CGS;   //disk temp=100 K    chi_R
-  opacity.Planck    = PLANCK*MSTAR_CGS/MSTAR*R0*R0/R0_CGS/R0_CGS;     //star temp=4750 K   chi*_P
+  opacity.Rosseland = ROSSELAND*MSTAR_CGS/MSTAR*R0*R0/R0_CGS/R0_CGS;   //disk temp~100 K    chi_R
+  opacity.Planck    = PLANCK*MSTAR_CGS/MSTAR*R0*R0/R0_CGS/R0_CGS;     //star temp~4750 K   chi*_P
   opacity.ratio     = opacity.Planck/opacity.Rosseland;
   opacity.ratio_p   = RATIOPNUM*MSTAR_CGS/MSTAR*R0*R0/R0_CGS/R0_CGS/opacity.Rosseland;     //kappa_P/chi_R
   opacity.abs_frac  = ABSFRACNUM*MSTAR_CGS/MSTAR*R0*R0/R0_CGS/R0_CGS/opacity.Planck;       //kappa_P/
@@ -315,7 +315,7 @@ void flip_full_array_float(float *full_array, int x_azi, int x_full, int y_full)
   free(dummy);
 }
 
-void update_temp_height_azi(double *full_flux, 
+void update_temp_height(double *full_flux, 
                            struct disk_parameters *DP, struct disk_opacity *opacity, 
                            real dt, int opac_i)
 {
@@ -432,12 +432,6 @@ void update_temp_height_azi(double *full_flux,
 #ifdef ADIABATIC
       energy_dens[1][l] = 0.0; 
       energy_dens[2][l] = 0.0; 
-      if(isnan(energy_dens[0][l]) || isinf(energy_dens[0][l]) || energy_dens[0][l]<=0.0){
-        printf("(%d,%d,%d): cs=%.3E e=%.3E f=%.3E rho=%.3E thick=%.2E heat=%.3E  \n  d_e=%.2E  cs_lim=%.3E T_lim=%.3E Temp=%.2E\n",
-        CPU_Rank,i,j, cs[l],energy_dens[0][l],flux_in/energy_convert,rho[0][l],thick,heating,
-        d_e,cs_limit/sqrt(G/G_CGS*MSTAR/MSTAR_CGS/R0*R0_CGS),Temp_limit,Temp);
-        exit(0);
-      } 
 #endif
     }
   }
@@ -749,7 +743,7 @@ void _radtransfer_azi_cpu(real dt){
   }
 
   //update the energy and scale height (in the original domain decomposition)
-  update_temp_height_azi(full_flux,&DP,&opacity,dt,opac_i);
+  update_temp_height(full_flux,&DP,&opacity,dt,opac_i);
 
   free(full_flux);
   free(full_surf2);

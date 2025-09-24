@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Radiative Transfer</title>
+    <link rel="stylesheet" href="styles.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        fetch("sidebar.html")
+          .then(response => {
+            if (!response.ok) {
+              throw new Error("Sidebar fetch failed: " + response.statusText);
+            }
+            return response.text();
+          })
+          .then(html => {
+            document.getElementById("sidebar").innerHTML = html;
+          })
+          .catch(err => {
+            console.error("Error loading sidebar:", err);
+          });
+      });
+    </script>
+</head>
+<body>
+    <div id="sidebar"></div>
+
+    <div class="main-page">
+        <h1>Radiative Transfer</h1>
+
+        <h3>Background</h3>
+
+        <p>The radiative transfer method is based on a moment method from<a 
+            href="https://ui.adsabs.harvard.edu/abs/2008ApJ...679..797J/abstract">
+            Hannah Jang-Condell</a>. DustRad computes the heating at the disk 
+            <em>midplane</em> due to starlight intercepted at the disk's 
+            starlight-absorbing surface. Instead of solving a full 3D, 
+            wavelength-dependent radiative transfer, it:
+        </p>
+        <ul>
+        <li>Reconstructs an analytic vertical density profile from 2D (vertically
+             integrated) quantities and locates the starlight-absorbing surface 
+             (the τ≈2/3 surface).</li>
+        <li>Uses a plane-parallel analytic expression for the intensity received
+            from each small surface patch (an expression of the form \( B(\tau_s,\mu) \)).</li>
+        <li>Integrates (sums) contributions of many surface patches to obtain 
+            the bolometric intensity at each midplane point, accounting for 
+            shadowing by the disk photosphere. </li>
+        <li>Converts that intensity into a net heating rate and applies it in 
+            FARGO3D's source step, updating internal energy and scale height.</li>
+        </ul>
+
+        <h4>Finding the Surface</h4>
+        <p>DustRad makes several key assumptions to solve for the 
+            starlight-absorbing surface from the 2D, vertically-averaged 
+            density distribution used for the hydrodynamics.</p>
+        <p><strong>Two-temperature, gray approximation:</strong> DustRad treats
+         the disk as a two-temperature vertical profile (warm surface, cooler 
+         midplane) and uses gray opacities (separate gray opacity regimes for 
+         stellar and thermal wavelengths). The surface temperature is set by 
+         local balance of starlight absorption and radiative cooling. </p>
+
+        <p><strong>Surface temperature:</strong> the surface temperature used 
+            for the atmosphere is</p>
+        $$T_{\rm surf}(r) = \epsilon_s^{-1/4}\sqrt{\dfrac{R_*}{2r}}\,T_* $$
+        <p class="small">(Equation 13 in the paper). Here \( \epsilon_s = 
+            \kappa_{P}/\kappa^*_{P} \) is the emissivity ratio (Planck opacities
+             for disk vs stellar spectrum).</p>
+
+        <p><strong>Piecewise vertical density:</strong> The vertical distribution 
+            is assumed to be Gaussian-like layers with different scale heights 
+            above and below the photosphere height \(z_{ph}\):</p>
+        $$ \rho_{d,0}(r,\phi,z) = \begin{cases} \rho_{\rm mid}
+             \exp\!\big(-z^2/(2H_{\rm mid}^2)\big), & z \le z_{ph} \\[0.3em] 
+             \rho_{\rm ph} \exp\!\big(-z^2/(2H_{\rm ph}^2)\big), & z > z_{ph} 
+             \end{cases} $$
+
+        <p>Using the surface information, the radiation from each element is calculated
+            and the contribution at the midplane is summed. The calculations are as follows
+        </p>
+
+        <h4>Intensity from a surface element (local, plane-parallel form)</h4>
+        $$ B(\tau_s,\mu) = \frac{\sigma_B T^4}{\pi} = \frac{\alpha_{\rm abs}
+         F_{\rm irr}\mu}{4\pi}\big(c_1 + c_2 e^{-\tau_s} + c_3 e^{-\beta\mu\tau_s}\big) $$
+
+        <p>In DustRad the non-diffuse terms are negligible at the midplane, so DustRad simplifies this to the diffuse term</p>
+        $$ B(\tau_s,\mu) \;\approx\; \frac{\alpha_{\rm abs} F_{\rm irr}\mu}{4\pi}\,c_1 $$
+        <p> Here \(F_{\rm irr}\) is the stellar flux incident on that surface
+             patch and \(\mu\) the cosine of local incidence angle.</p>
+
+        <h4>Sum Intensity from Surface</h4>
+        $$ B_{\rm tot}(P) \simeq \frac{1}{\pi}\sum_{i=1}^{n} B_i(\tau_i,\mu_i)\,\nu_i\,\Delta\Omega_i $$
+        <p>Each surface element contributes its intensity over the solid
+            angle \(\Delta\Omega_i\) as seen from midplane point \(P\). The 
+            geometric factor \(\nu_i\) accounts for projected area/orientation.</p>
+
+        <h4>Heating & cooling -> source-term update </h4>
+        $$ Q_{\rm net} = Q_{\rm rad} - Q_{\rm cool}
+        \quad,\quad
+            Q_{\rm rad} = \dfrac{\pi B_{\rm tot}}{\tau_{\rm eff}} $$
+        $$ \tau_{\rm eff} = \dfrac{3\tau}{8} + \dfrac{\sqrt{3}}{4} 
+        + \dfrac{1}{4\tau},\quad \tau = \kappa_P \Sigma_{d,1}/2 $$
+        $$ Q_{\rm cool} = \dfrac{\sigma T^4}{\tau_{\rm eff}} $$
+        <p>Update energy: \( e_t = e_{t-\Delta t} + Q_{\rm net}\Delta t \). 
+            Update sound speed and relax scale height toward hydrostatic equilibrium.</p>
+
+
+
+        <h4>Speed-Ups to Calculation </h4>
+        <p>The analytic moment method offers a fast calculation of the heating 
+        from radiative transfer. The method has been streamlined from 
+        Jang-Condell 2008 since we are only solving for the heating at the 
+        midplane. Even with this refinement, radiative transfer is the slowest
+        step in DustRad if done at the same resolution as the hydrodynamics. 
+        Therefore, we introduce <em>dedicated grids</em> for radiative transfer 
+        that can be much coarser than the hydro grid:
+        </p>
+
+        <ul>
+        <li><strong>Separate RT grids:</strong>
+            <ul>
+            <li><em>Surface grid</em> (for star-irradiated surface regions)</li>
+            <li><em>Midplane grid</em> (for heating points)</li>
+            </ul>
+            Both can use fewer points in \(r\) and \(\phi\) than the hydro grid.
+            The computed heating field is interpolated back onto the hydro grid afterward.
+        </li>
+
+        <li><strong>Center sampling of surface regions:</strong> Each surface
+        region initially uses its geometric center to represent the entire area, so one 
+        ray and one solid angle calculation replaces many.</li>
+
+        <li><strong>Adaptive subdivision:</strong> If the center cell of a surface
+        region contributes a significant portion of the midplane intensity,
+        it is sampled more finely to more accurately capture the flux contributed
+        by the region. The limits of this this adaptive flux 
+        calcuation are determined by the user inputs \(f_1\) and \(f_2\). These inputs
+        are represent the ratio of the flux for a surface region to the maximum flux 
+        calculated. If the initial flux calculation from the center cell of 
+        the surface region is below the lower
+        limit, \(f_1\), then just the center cell is used. If it is above the upper
+        limit, \(f_2\), then every cell in the region is sampled. If it is inbetween,
+        then an additional fraction of the cells \( F \) are calculated
+         according to the following formula:
+        $$F = \ln{(f/f_2)}/\ln{(f_1/f_2)}$$
+        </li>
+
+        <li><strong>Photosphere shadowing accelerates too:</strong> The shadow 
+        test not only improves realism (no double-heating of shadowed zones) 
+        but also avoids calculating contributions from surface cells that are fully blocked.</li>
+        </ul>
+
+
+
+
+        <h3>Setup</h3>
+        <h4>The .opt file</h4>
+        
+        <p>To include the heating from radiative transfer in simulations, add 
+            the following line:
+        </p>
+        <ul>
+        <pre><code>FFARGO_OPT += -DRUNRADTRANS</code></pre>
+        </ul>
+
+        <p>The heating at the midplane is calculated from the radiation each 
+            midplane point receives from the surface points. We do not consider
+            the diffusion of radiation between points along the midplane. 
+            Instead, we utilize the adiabatic equation of state in FARGO3D to
+            allow for advection and diffusion of heat via the gas motion.
+        </p>
+        <ul>
+        <pre><code>FARGO_OPT += -DADIABATIC</code></pre>
+        </ul>
+        
+
+        <h4>The .par file</h4>
+        <p> The radiative transfer calculations requires information 
+        on the disk opacity. These are specifified by the following parameters
+        in the <code>.par file</code>:
+        <ul>
+            <li><code>Rosseland</code>: The Rosseland mean opacity of the small
+            dust grains averaged over the disk thermal wavelength spectrum
+            </li>
+            <li><code>Planck</code>: The Planck mean opacity of the small dust
+            grains averaged over the stellar wavelength spectrum
+            </li>
+            <li><code>RatioPNum</code>: The average absorption of the small dust 
+            over the disk thermal wavelength spectrum. Used in the ratio of 
+            absorption to extinction.
+            </li>
+            <li><code>AbsFracNum</code>:The average absorption of the small dust 
+            over the stellar wavelength spectrum. Used in the ratio of 
+            absorption to extinction.
+            </li>
+        </ul>
+        </p>
+        
+        <p>We have included the option for users to specify resolutions for 
+            the radiative transfer calculations that are separate from the 
+            hydrodynamic grid. The surface and midplane resolutions can be 
+            given in both the radial and azimuthal directions. The following 
+            variables should be specified in the <code>.par</code> file:
+            <ul>
+            <li><code>Nx_rad</code>: Number of azimuthal points in midplane for which heating is calculated</li>
+            <li><code>Ny_rad</code>: Number of radial points in midplane for which heating is calculated</li>
+            <li><code>NxRadSurf</code>: Number of azimuthal surface points from which radiation is received</li>
+            <li><code>NyRadSurf</code>: Number of radial surface points from which radiation is received</li>
+            </ul>
+        </p>
+
+        <h3>Implementation</h3>
+        <p>The sequence of calculations for the radiative transfer occur in the 
+            file <code>Rad_main.c</code>. The primary steps in the calculation 
+            can be summarized as:
+        </p>
+        <ul>
+        <li><strong>Transpose Domain Decompositon:</strong> The initial 
+        domain decomposition from FARGO3D's hydrodynamics separates the disk 
+        into annular rings that are treated separately by each processor used 
+        in the parallel computation. This decomposition benefits FARGO3D's fast 
+        orbital advection scheme, but is not ideal for our radiative transfer 
+        calculations. The starlight absorbing surface must be solved from the 
+        inner radial boundary to the outer radial boundary. So our first step 
+        is to redo the domain decompositon into radial strips using MPI communication.
+        This occurs in <code>rad_transfer_cpu()</code> in <code>Rad_main.c</code>.</li> 
+
+        <li><strong>Determine Starlight-Absorbing Surface:</strong> The height 
+        of the surface is calculated in <code>calc_surf_twotemp()</code> in 
+        the file <code>Rad_surface.c</code>. The disk conditions at the inner 
+        radial boundary are extrapolated inward to determine the starting surface 
+        height at the inner boundary. Then the optical depth is calculated on rays 
+        extending radially outward using the volume density and the opacity of the 
+        small dust grain population. The exact height of the starlight absorbing 
+        surface (\( \tau=2/3 \)) is interpolated from the value of these rays at each point in the 
+        hydrodynamic grid.</li>
+
+        <li><strong>Communicate Surface Between Processors: </strong> Each 
+        processor then needs the surface information to calculate the radiation 
+        received by each midplane point (within their separate domains) from each 
+        surface point (within and beyond their domain). This communication occurs
+        in <code>rad_transfer_cpu()</code> in <code>Rad_main.c</code>. </li>
+
+        <li><strong>Calculate Radiation from Surface:</strong> The contribution 
+        from each surface element to each midplane element is calculated in 
+        <code>B_flux_azi()</code> and then summed in <code>calc_flux_azi()</code>,
+        both of which are found in <code>Rad_flux.c</code>.</li>
+        <li><strong>Update Energy and Scale Height:</strong> The cells are returned
+        to their original domain decomposition and the heating is added to the cells 
+        in <code>update_temp_height()</code> in <code>Rad_main.c</code>. The sound 
+        speed is updated and the scale height is relaxed toward the new hydrostatic 
+        equilibrium over an orbital timescale.</li>
+        </ul>
+
+    </div>
+   
+</body>
+</html>

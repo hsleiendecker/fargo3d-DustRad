@@ -69,18 +69,18 @@
 
     <h4>Sequential CPU</h4>
     <pre><code>make SETUP=fargo PARALLEL=0 GPU=0
-./fargo3d in/fargo.par
-</code></pre>
+    ./fargo3d in/fargo.par
+    </code></pre>
 
     <h4>Parallel CPU</h4>
     <pre><code>make SETUP=fargo PARALLEL=1 GPU=0
-mpirun -np 4 ./fargo3d in/fargo.par
-</code></pre>
+    mpirun -np 4 ./fargo3d in/fargo.par
+    </code></pre>
 
     <h4>Sequential GPU</h4>
     <pre><code>make SETUP=fargo PARALLEL=0 GPU=1
-./fargo3d in/fargo.par
-</code></pre>
+    ./fargo3d in/fargo.par
+    </code></pre>
 
     <h4>Parallel GPU</h4>
     <pre><code>make SETUP=fargo PARALLEL=1 GPU=1
